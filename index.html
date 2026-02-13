@@ -64,7 +64,7 @@
     <div id="addr-fields"></div>
     <div class="btn-row">
       <button id="addFriendBtn" onclick="addFriend()">+ Add friend</button>
-      <button id="findBtn" onclick="findMidpoint()">Find Midpoint</button>
+      <button id="findBtn" onclick="findMidpoint()">Find Pub</button>
     </div>
     <div id="error"></div>
   </div>
@@ -534,7 +534,7 @@
         errorEl.textContent = e.message;
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Find Midpoint';
+        btn.textContent = 'Find Pub';
       }
     }
   </script>
