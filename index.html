@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Midpoint Finder</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600&display=swap" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root { --forest: #283618; --ash: #B7B7A4; --light: #D4D4D4; --white: #F0EFEB; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Work Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; height: 100vh; color: var(--forest); background: var(--white); }
+    .controls { padding: 12px 16px; background: var(--forest); border-bottom: 1px solid var(--ash); }
+    #main { display: flex; flex: 1; min-height: 0; }
+    .addr-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .addr-wrap { flex: 1; position: relative; }
+    .addr-wrap input { width: 100%; padding: 8px 12px; border: 1px solid var(--ash); border-radius: 6px; font-size: 14px; background: var(--white); color: var(--forest); font-family: inherit; }
+    .addr-wrap input::placeholder { color: var(--ash); }
+    .ac-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--white); border: 1px solid var(--ash); border-top: none; border-radius: 0 0 6px 6px; max-height: 200px; overflow-y: auto; z-index: 1000; display: none; }
+    .ac-list div { padding: 6px 12px; font-size: 13px; cursor: pointer; color: var(--forest); }
+    .ac-list div:hover, .ac-list div.active { background: var(--light); }
+    .ac-list div small { color: var(--ash); }
+    .addr-label { font-size: 12px; color: var(--white); width: 80px; min-width: 80px; font-weight: 600; background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 2px 4px; font-family: inherit; cursor: text; }
+    .addr-label:hover { border-color: rgba(255,255,255,0.3); }
+    .addr-label:focus { outline: none; border-color: var(--ash); background: rgba(255,255,255,0.1); color: var(--white); }
+    .remove-btn { background: none; border: none; color: var(--light); font-size: 18px; cursor: pointer; padding: 4px 8px; line-height: 1; border-radius: 4px; }
+    .remove-btn:hover { background: rgba(255,255,255,0.1); color: var(--white); }
+    .btn-row { display: flex; gap: 8px; align-items: center; }
+    .btn-row button { padding: 8px 16px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; white-space: nowrap; font-family: inherit; font-weight: 600; }
+    #findBtn { background: var(--ash); color: var(--forest); }
+    #findBtn:hover { background: var(--light); }
+    #findBtn:disabled { background: var(--ash); opacity: 0.5; cursor: not-allowed; }
+    #addFriendBtn { background: transparent; color: var(--ash); border: 1px solid var(--ash); }
+    #addFriendBtn:hover { background: rgba(255,255,255,0.1); color: var(--white); border-color: var(--white); }
+    #map { flex: 1; min-height: 0; }
+    #error { color: #c1121f; font-size: 13px; margin-top: 4px; }
+    #error:empty { display: none; }
+    #sidebar { display: none; width: 360px; min-width: 360px; border-right: 1px solid var(--light); overflow-y: auto; background: var(--white); }
+    #sidebar.visible { display: block; }
+    #info { padding: 16px; font-size: 14px; }
+    .drives { display: flex; flex-direction: column; gap: 8px; }
+    .drives .route { }
+    .drives .route b { display: block; margin-bottom: 2px; }
+    #pubs-list { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--light); }
+    #pubs-list h3 { font-size: 14px; margin-bottom: 6px; color: var(--forest); }
+    #pubs-list ol { margin: 0; padding-left: 20px; }
+    #pubs-list li { margin-bottom: 3px; cursor: pointer; color: var(--forest); }
+    #pubs-list li:hover { text-decoration: underline; }
+    #pubs-list li span { color: var(--ash); font-size: 12px; }
+    .pub-detail { margin-top: 10px; padding: 12px; background: var(--light); border-radius: 8px; border: 1px solid var(--ash); }
+    .pub-detail h3 { font-size: 16px; margin-bottom: 8px; color: var(--forest); }
+    .pub-detail .pub-meta { font-size: 13px; color: var(--forest); line-height: 1.6; }
+    .pub-detail .pub-photo { width: 100%; max-height: 200px; object-fit: cover; border-radius: 6px; margin-bottom: 8px; }
+    .pub-detail .pub-links { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+    .pub-detail .pub-links a { display: inline-block; padding: 4px 12px; background: var(--forest); color: var(--white); border-radius: 4px; text-decoration: none; font-size: 13px; }
+    .pub-detail .pub-links a:hover { opacity: 0.85; }
+    .pub-detail .pub-links a.secondary { background: var(--ash); color: var(--forest); }
+    .pub-detail .pub-links a.secondary:hover { opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <div id="addr-fields"></div>
+    <div class="btn-row">
+      <button id="addFriendBtn" onclick="addFriend()">+ Add friend</button>
+      <button id="findBtn" onclick="findMidpoint()">Find Midpoint</button>
+    </div>
+    <div id="error"></div>
+  </div>
+  <div id="main">
+    <div id="sidebar"><div id="info"></div></div>
+    <div id="map"></div>
+  </div>
+  <script>
+    const map = L.map('map').setView([39.8283, -98.5795], 4);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Centre map on user's location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => map.setView([pos.coords.latitude, pos.coords.longitude], 11),
+        () => ipGeolocate()
+      );
+    } else {
+      ipGeolocate();
+    }
+    function ipGeolocate() {
+      fetch('https://freeipapi.com/api/json')
+        .then(r => r.json())
+        .then(data => {
+          if (data.latitude && data.longitude) map.setView([data.latitude, data.longitude], 11);
+        })
+        .catch(() => {});
+    }
+
+    // --- Dynamic address fields ---
+    const ROUTE_COLORS = ['#0d6efd', '#198754', '#e85d04', '#6f42c1', '#d63384', '#20c997', '#fd7e14', '#0dcaf0'];
+    let addrCount = 0;
+
+    function addAddressField(label, placeholder, removable) {
+      addrCount++;
+      const id = addrCount;
+      const row = document.createElement('div');
+      row.className = 'addr-row';
+      row.id = `addr-row-${id}`;
+      row.innerHTML =
+        `<input type="text" class="addr-label" value="${label}" />` +
+        `<div class="addr-wrap"><input type="text" id="addr-${id}" placeholder="${placeholder}" autocomplete="off" /><div class="ac-list" id="ac-${id}"></div></div>` +
+        (removable ? `<button class="remove-btn" onclick="removeFriend(${id})" title="Remove">&times;</button>` : '<span style="width:30px"></span>');
+      document.getElementById('addr-fields').appendChild(row);
+      setupAutocomplete(`addr-${id}`, `ac-${id}`);
+    }
+
+    function removeFriend(id) {
+      const row = document.getElementById(`addr-row-${id}`);
+      if (row) row.remove();
+    }
+
+    function addFriend() {
+      const friendNum = document.querySelectorAll('.addr-row').length;
+      addAddressField(`Friend ${friendNum}`, `Friend ${friendNum}'s location`, true);
+    }
+
+    // Initialize with 2 fields
+    addAddressField('You', 'Your location', false);
+    addAddressField('Friend 1', "Friend 1's location", true);
+
+    // --- Autocomplete ---
+    function setupAutocomplete(inputId, listId) {
+      const input = document.getElementById(inputId);
+      const list = document.getElementById(listId);
+      let debounceTimer = null;
+      let activeIdx = -1;
+      let items = [];
+
+      input.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        const q = input.value.trim();
+        if (q.length < 3) { list.style.display = 'none'; return; }
+        debounceTimer = setTimeout(async () => {
+          try {
+            const params = new URLSearchParams({ q, limit: '5' });
+            const c = map.getCenter();
+            params.set('lat', c.lat); params.set('lon', c.lng);
+            const res = await fetch(`https://photon.komoot.io/api/?${params}`);
+            const data = await res.json();
+            items = data.features || [];
+            activeIdx = -1;
+            if (!items.length) { list.style.display = 'none'; return; }
+            list.innerHTML = items.map((f, i) => {
+              const p = f.properties;
+              const parts = [p.name, p.street, p.city, p.state, p.country].filter(Boolean);
+              return `<div data-idx="${i}">${parts[0]}${parts.length > 1 ? ' <small>' + parts.slice(1).join(', ') + '</small>' : ''}</div>`;
+            }).join('');
+            list.style.display = 'block';
+          } catch (e) { list.style.display = 'none'; }
+        }, 300);
+      });
+
+      list.addEventListener('mousedown', e => {
+        const el = e.target.closest('[data-idx]');
+        if (!el) return;
+        selectItem(parseInt(el.dataset.idx));
+      });
+
+      input.addEventListener('keydown', e => {
+        if (list.style.display === 'none' || !items.length) {
+          if (e.key === 'Enter') findMidpoint();
+          return;
+        }
+        if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1); highlight(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); highlight(); }
+        else if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); selectItem(activeIdx); }
+        else if (e.key === 'Escape') { list.style.display = 'none'; }
+      });
+
+      input.addEventListener('blur', () => { setTimeout(() => list.style.display = 'none', 150); });
+
+      function highlight() {
+        list.querySelectorAll('div').forEach((d, i) => d.classList.toggle('active', i === activeIdx));
+      }
+
+      function selectItem(idx) {
+        const f = items[idx];
+        const p = f.properties;
+        const parts = [p.name, p.housenumber, p.street, p.city, p.postcode, p.state, p.country].filter(Boolean);
+        input.value = parts.join(', ');
+        list.style.display = 'none';
+      }
+    }
+
+    // --- State ---
+    let markers = [];
+    let routeLayers = [];
+    let pubMarkers = [];
+
+    const redIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png', shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] });
+    const pubIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-gold.png', shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] });
+
+    const OVERPASS_SERVERS = [
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter',
+      'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+    ];
+
+    async function queryOverpass(query) {
+      for (const server of OVERPASS_SERVERS) {
+        try {
+          const res = await fetch(server, { method: 'POST', body: `data=${encodeURIComponent(query)}` });
+          if (!res.ok) continue;
+          return await res.json();
+        } catch (e) { continue; }
+      }
+      throw new Error('All Overpass servers unavailable');
+    }
+
+    async function findNearbyPubs(lat, lon) {
+      const radius = 5000;
+      const query = `[out:json][timeout:25];(node["amenity"="pub"](around:${radius},${lat},${lon});way["amenity"="pub"](around:${radius},${lat},${lon});node["amenity"="bar"](around:${radius},${lat},${lon});way["amenity"="bar"](around:${radius},${lat},${lon}););out center body;`;
+      const data = await queryOverpass(query);
+      const pubs = data.elements.map(el => {
+        const elLat = el.lat ?? el.center?.lat;
+        const elLon = el.lon ?? el.center?.lon;
+        if (!elLat || !elLon) return null;
+        const d = Math.sqrt((elLat - lat) ** 2 + (elLon - lon) ** 2) * 111320;
+        const t = el.tags || {};
+        return {
+          name: t.name || 'Unnamed pub', lat: elLat, lon: elLon, dist: d,
+          addr: [t['addr:housenumber'], t['addr:street'], t['addr:city']].filter(Boolean).join(', '),
+          website: t.website || t['contact:website'] || '',
+          phone: t.phone || t['contact:phone'] || '',
+          openingHours: t.opening_hours || '',
+          cuisine: t.cuisine || '',
+          image: t.image || '',
+          wikidata: t.wikidata || '',
+        };
+      });
+      pubs.sort((a, b) => a.dist - b.dist);
+      return pubs.filter(Boolean).slice(0, 5);
+    }
+
+    function googleMapsSearchUrl(name, lat, lon) {
+      return `https://www.google.com/maps/search/${encodeURIComponent(name)}/@${lat},${lon},17z`;
+    }
+
+    async function getWikidataImage(qid) {
+      try {
+        const res = await fetch(`https://www.wikidata.org/wiki/Special:EntityData/${qid}.json`);
+        const data = await res.json();
+        const imgClaim = data.entities[qid]?.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
+        if (imgClaim) {
+          const filename = imgClaim.replace(/ /g, '_');
+          const md5 = await hashMD5(filename);
+          return `https://upload.wikimedia.org/wikipedia/commons/thumb/${md5[0]}/${md5[0]}${md5[1]}/${filename}/400px-${filename}`;
+        }
+      } catch (e) {}
+      return '';
+    }
+
+    async function hashMD5(str) {
+      const buf = await crypto.subtle.digest('MD5', new TextEncoder().encode(str)).catch(() => null);
+      if (buf) return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+      return md5mini(str);
+    }
+
+    function md5mini(s) {
+      function md5cycle(x, k) {
+        let a = x[0], b = x[1], c = x[2], d = x[3];
+        a=ff(a,b,c,d,k[0],7,-680876936);d=ff(d,a,b,c,k[1],12,-389564586);c=ff(c,d,a,b,k[2],17,606105819);b=ff(b,c,d,a,k[3],22,-1044525330);
+        a=ff(a,b,c,d,k[4],7,-176418897);d=ff(d,a,b,c,k[5],12,1200080426);c=ff(c,d,a,b,k[6],17,-1473231341);b=ff(b,c,d,a,k[7],22,-45705983);
+        a=ff(a,b,c,d,k[8],7,1770035416);d=ff(d,a,b,c,k[9],12,-1958414417);c=ff(c,d,a,b,k[10],17,-42063);b=ff(b,c,d,a,k[11],22,-1990404162);
+        a=ff(a,b,c,d,k[12],7,1804603682);d=ff(d,a,b,c,k[13],12,-40341101);c=ff(c,d,a,b,k[14],17,-1502002290);b=ff(b,c,d,a,k[15],22,1236535329);
+        a=gg(a,b,c,d,k[1],5,-165796510);d=gg(d,a,b,c,k[6],9,-1069501632);c=gg(c,d,a,b,k[11],14,643717713);b=gg(b,c,d,a,k[0],20,-373897302);
+        a=gg(a,b,c,d,k[5],5,-701558691);d=gg(d,a,b,c,k[10],9,38016083);c=gg(c,d,a,b,k[15],14,-660478335);b=gg(b,c,d,a,k[4],20,-405537848);
+        a=gg(a,b,c,d,k[9],5,568446438);d=gg(d,a,b,c,k[14],9,-1019803690);c=gg(c,d,a,b,k[3],14,-187363961);b=gg(b,c,d,a,k[8],20,1163531501);
+        a=gg(a,b,c,d,k[13],5,-1444681467);d=gg(d,a,b,c,k[2],9,-51403784);c=gg(c,d,a,b,k[7],14,1735328473);b=gg(b,c,d,a,k[12],20,-1926607734);
+        a=hh(a,b,c,d,k[5],4,-378558);d=hh(d,a,b,c,k[8],11,-2022574463);c=hh(c,d,a,b,k[11],16,1839030562);b=hh(b,c,d,a,k[14],23,-35309556);
+        a=hh(a,b,c,d,k[1],4,-1530992060);d=hh(d,a,b,c,k[4],11,1272893353);c=hh(c,d,a,b,k[7],16,-155497632);b=hh(b,c,d,a,k[10],23,-1094730640);
+        a=hh(a,b,c,d,k[13],4,681279174);d=hh(d,a,b,c,k[0],11,-358537222);c=hh(c,d,a,b,k[3],16,-722521979);b=hh(b,c,d,a,k[6],23,76029189);
+        a=hh(a,b,c,d,k[9],4,-640364487);d=hh(d,a,b,c,k[12],11,-421815835);c=hh(c,d,a,b,k[15],16,530742520);b=hh(b,c,d,a,k[2],23,-995338651);
+        a=ii(a,b,c,d,k[0],6,-198630844);d=ii(d,a,b,c,k[7],10,1126891415);c=ii(c,d,a,b,k[14],15,-1416354905);b=ii(b,c,d,a,k[5],21,-57434055);
+        a=ii(a,b,c,d,k[12],6,1700485571);d=ii(d,a,b,c,k[3],10,-1894986606);c=ii(c,d,a,b,k[10],15,-1051523);b=ii(b,c,d,a,k[1],21,-2054922799);
+        a=ii(a,b,c,d,k[8],6,1873313359);d=ii(d,a,b,c,k[15],10,-30611744);c=ii(c,d,a,b,k[6],15,-1560198380);b=ii(b,c,d,a,k[13],21,1309151649);
+        a=ii(a,b,c,d,k[4],6,-145523070);d=ii(d,a,b,c,k[11],10,-1120210379);c=ii(c,d,a,b,k[2],15,718787259);b=ii(b,c,d,a,k[9],21,-343485551);
+        x[0]=add32(a,x[0]);x[1]=add32(b,x[1]);x[2]=add32(c,x[2]);x[3]=add32(d,x[3]);
+      }
+      function cmn(q,a,b,x,s,t){a=add32(add32(a,q),add32(x,t));return add32((a<<s)|(a>>>(32-s)),b)}
+      function ff(a,b,c,d,x,s,t){return cmn((b&c)|((~b)&d),a,b,x,s,t)}
+      function gg(a,b,c,d,x,s,t){return cmn((b&d)|(c&(~d)),a,b,x,s,t)}
+      function hh(a,b,c,d,x,s,t){return cmn(b^c^d,a,b,x,s,t)}
+      function ii(a,b,c,d,x,s,t){return cmn(c^(b|(~d)),a,b,x,s,t)}
+      function add32(a,b){return(a+b)&0xFFFFFFFF}
+      const n=s.length;let state=[1732584193,-271733879,-1732584194,271733878],i;
+      for(i=64;i<=n;i+=64){const k=[];for(let j=i-64;j<i;j+=4)k.push(s.charCodeAt(j)|(s.charCodeAt(j+1)<<8)|(s.charCodeAt(j+2)<<16)|(s.charCodeAt(j+3)<<24));md5cycle(state,k)}
+      const tail=[];for(let j=i-64;j<n;j++)tail.push(s.charCodeAt(j));tail.push(0x80);while(tail.length%64!==56)tail.push(0);
+      const bl=n*8;tail.push(bl&0xff,(bl>>8)&0xff,(bl>>16)&0xff,(bl>>24)&0xff,0,0,0,0);
+      const k=[];for(let j=0;j<tail.length;j+=4)k.push(tail[j]|(tail[j+1]<<8)|(tail[j+2]<<16)|(tail[j+3]<<24));
+      for(let j=0;j<k.length;j+=16)md5cycle(state,k.slice(j,j+16));
+      const hex=[];for(let j=0;j<4;j++)for(let jj=0;jj<4;jj++)hex.push(((state[j]>>(jj*8))&0xff).toString(16).padStart(2,'0'));
+      return hex.join('');
+    }
+
+    async function getRoute(fromLat, fromLon, toLat, toLon) {
+      const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.code !== 'Ok' || !data.routes.length) return null;
+      return { duration: data.routes[0].duration, distance: data.routes[0].distance, geometry: data.routes[0].geometry };
+    }
+
+    function formatDuration(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.round((seconds % 3600) / 60);
+      return h > 0 ? `${h} hr ${m} min` : `${m} min`;
+    }
+
+    function formatDistance(meters) {
+      const miles = meters / 1609.34;
+      return miles >= 10 ? `${Math.round(miles)} mi` : `${miles.toFixed(1)} mi`;
+    }
+
+    async function geocode(address) {
+      const url = `https://nominatim.openstreetmap.org/search?${new URLSearchParams({ q: address, format: 'json', limit: '1' })}`;
+      const res = await fetch(url, { headers: { 'User-Agent': 'MidpointFinderApp/1.0' } });
+      const data = await res.json();
+      if (!data.length) throw new Error(`Address not found: "${address}"`);
+      return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: data[0].display_name };
+    }
+
+    async function showPubDetail(pub) {
+      const detailEl = document.getElementById('pub-detail');
+      if (!detailEl) return;
+      const gmapsUrl = googleMapsSearchUrl(pub.name, pub.lat, pub.lon);
+      let photoHTML = '';
+      if (pub.image) {
+        photoHTML = `<img class="pub-photo" src="${pub.image}" alt="${pub.name}" onerror="this.style.display='none'" />`;
+      } else if (pub.wikidata) {
+        detailEl.innerHTML = `<div class="pub-detail"><p>Loading details...</p></div>`;
+        const imgUrl = await getWikidataImage(pub.wikidata);
+        if (imgUrl) photoHTML = `<img class="pub-photo" src="${imgUrl}" alt="${pub.name}" onerror="this.style.display='none'" />`;
+      }
+      let metaLines = [];
+      if (pub.addr) metaLines.push(pub.addr);
+      if (pub.phone) metaLines.push(`Phone: ${pub.phone}`);
+      if (pub.openingHours) metaLines.push(`Hours: ${pub.openingHours}`);
+      if (pub.cuisine) metaLines.push(`Cuisine: ${pub.cuisine}`);
+      detailEl.innerHTML = `<div class="pub-detail">
+        <h3>${pub.name}</h3>
+        ${photoHTML}
+        <div class="pub-meta">${metaLines.join('<br>')}</div>
+        <div class="pub-links">
+          ${pub.website ? `<a href="${pub.website}" target="_blank">Pub website</a>` : ''}
+          <a href="${gmapsUrl}" target="_blank" class="${pub.website ? 'secondary' : ''}">Google Maps (reviews &amp; photos)</a>
+        </div>
+      </div>`;
+    }
+
+    // --- N-person drive-time midpoint optimization ---
+    // Uses iterative approach: start at geographic centroid, then shift toward
+    // whoever has the longest drive, shrinking the step each iteration.
+    async function optimizeMidpoint(locations, btn) {
+      // Geographic centroid as starting point
+      let candLat = locations.reduce((s, l) => s + l.lat, 0) / locations.length;
+      let candLon = locations.reduce((s, l) => s + l.lon, 0) / locations.length;
+
+      let bestLat = candLat, bestLon = candLon;
+      let bestRoutes = null;
+      let bestMaxDur = Infinity;
+
+      // Adaptive step size based on spread of locations
+      const latSpread = Math.max(...locations.map(l => l.lat)) - Math.min(...locations.map(l => l.lat));
+      const lonSpread = Math.max(...locations.map(l => l.lon)) - Math.min(...locations.map(l => l.lon));
+      let step = 0.3;
+
+      const iterations = locations.length === 2 ? 6 : 7;
+
+      for (let i = 0; i < iterations; i++) {
+        btn.textContent = `Optimizing (${i + 1}/${iterations})...`;
+
+        const routes = await Promise.all(
+          locations.map(l => getRoute(l.lat, l.lon, candLat, candLon))
+        );
+
+        if (routes.some(r => !r)) break;
+
+        const durations = routes.map(r => r.duration);
+        const maxDur = Math.max(...durations);
+        const minDur = Math.min(...durations);
+
+        if (maxDur < bestMaxDur) {
+          bestLat = candLat; bestLon = candLon;
+          bestRoutes = routes; bestMaxDur = maxDur;
+        }
+
+        // Close enough — all drives within 1 minute of each other
+        if (maxDur - minDur < 60) break;
+
+        // Shift toward the person with the longest drive
+        const maxIdx = durations.indexOf(maxDur);
+        const target = locations[maxIdx];
+        candLat += (target.lat - candLat) * step;
+        candLon += (target.lon - candLon) * step;
+
+        step *= 0.7; // shrink step
+      }
+
+      // Final route fetch at best point if we moved away
+      if (bestLat !== candLat || bestLon !== candLon) {
+        const finalRoutes = await Promise.all(
+          locations.map(l => getRoute(l.lat, l.lon, bestLat, bestLon))
+        );
+        if (finalRoutes.every(r => r)) bestRoutes = finalRoutes;
+      }
+
+      return { lat: bestLat, lon: bestLon, routes: bestRoutes };
+    }
+
+    async function findMidpoint() {
+      const inputs = document.querySelectorAll('#addr-fields .addr-wrap input');
+      const addresses = [...inputs].map(el => el.value.trim());
+      const errorEl = document.getElementById('error');
+      const btn = document.getElementById('findBtn');
+      errorEl.textContent = '';
+
+      if (addresses.some(a => !a)) { errorEl.textContent = 'Please enter all addresses.'; return; }
+      if (addresses.length < 2) { errorEl.textContent = 'Need at least 2 locations.'; return; }
+
+      // Clear previous results
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
+      routeLayers.forEach(l => map.removeLayer(l));
+      routeLayers = [];
+      pubMarkers.forEach(m => map.removeLayer(m));
+      pubMarkers = [];
+      document.getElementById('info').innerHTML = '';
+      document.getElementById('sidebar').classList.remove('visible');
+      map.invalidateSize();
+
+      btn.disabled = true;
+      btn.textContent = 'Geocoding...';
+
+      try {
+        // Geocode all addresses (sequentially to respect Nominatim rate limits)
+        const locations = [];
+        for (let i = 0; i < addresses.length; i++) {
+          btn.textContent = `Geocoding (${i + 1}/${addresses.length})...`;
+          locations.push(await geocode(addresses[i]));
+          if (i < addresses.length - 1) await new Promise(r => setTimeout(r, 300));
+        }
+
+        // Get labels from the rows
+        const labels = [...document.querySelectorAll('#addr-fields .addr-label')].map(el => el.value || 'Person');
+
+        // Place location markers
+        locations.forEach((loc, i) => {
+          const color = ROUTE_COLORS[i % ROUTE_COLORS.length];
+          const m = L.marker([loc.lat, loc.lon]).addTo(map)
+            .bindPopup(`<b>${labels[i]}</b><br>${loc.name}`);
+          markers.push(m);
+        });
+
+        // Optimize midpoint
+        const mid = await optimizeMidpoint(locations, btn);
+
+        const m3 = L.marker([mid.lat, mid.lon], { icon: redIcon }).addTo(map);
+        markers.push(m3);
+
+        const bounds = L.latLngBounds(locations.map(l => [l.lat, l.lon]));
+        bounds.extend([mid.lat, mid.lon]);
+
+        // Draw routes and build info
+        let drivesHTML = '';
+        if (mid.routes) {
+          mid.routes.forEach((route, i) => {
+            const color = ROUTE_COLORS[i % ROUTE_COLORS.length];
+            const line = L.geoJSON(route.geometry, { style: { color, weight: 4, opacity: 0.7 } }).addTo(map);
+            routeLayers.push(line);
+            bounds.extend(line.getBounds());
+            drivesHTML += `<div class="route"><b style="color:${color}">${labels[i]}</b>${formatDuration(route.duration)} &middot; ${formatDistance(route.distance)}</div>`;
+          });
+        }
+
+        const infoEl = document.getElementById('info');
+        let infoHTML = drivesHTML ? `<div class="drives">${drivesHTML}</div>` : '<div style="color:#6c757d">Driving directions unavailable.</div>';
+
+        // Midpoint popup
+        let midPopup = `<b>Drive-time midpoint</b><br>${mid.lat.toFixed(5)}, ${mid.lon.toFixed(5)}`;
+        if (mid.routes) {
+          mid.routes.forEach((r, i) => { midPopup += `<br>${labels[i]}: ${formatDuration(r.duration)}`; });
+        }
+        m3.bindPopup(midPopup);
+
+        // Find nearby pubs
+        btn.textContent = 'Finding pubs...';
+        let pubs = [];
+        let pubError = '';
+        try { pubs = await findNearbyPubs(mid.lat, mid.lon); } catch (e) { pubError = e.message; console.warn('Pub search failed:', e); }
+
+        if (pubs.length) {
+          pubs.forEach((pub, i) => {
+            const gmapsUrl = googleMapsSearchUrl(pub.name, pub.lat, pub.lon);
+            const pm = L.marker([pub.lat, pub.lon], { icon: pubIcon }).addTo(map)
+              .bindPopup(`<b>${i + 1}. ${pub.name}</b>${pub.addr ? '<br>' + pub.addr : ''}<br>${Math.round(pub.dist)}m from midpoint<br><a href="${gmapsUrl}" target="_blank">View on Google Maps</a>`);
+            pubMarkers.push(pm);
+            bounds.extend([pub.lat, pub.lon]);
+          });
+          infoHTML += `<div id="pubs-list"><h3>Nearest pubs to midpoint</h3><ol>` +
+            pubs.map((pub, i) =>
+              `<li data-idx="${i}">${pub.name} <span>${Math.round(pub.dist)}m away${pub.addr ? ' &middot; ' + pub.addr : ''}</span></li>`
+            ).join('') + `</ol><div id="pub-detail"></div></div>`;
+        } else {
+          infoHTML += `<div id="pubs-list"><h3>Nearest pubs to midpoint</h3><p style="color:#6c757d">${pubError ? 'Pub search failed — try again. (' + pubError + ')' : 'No pubs found within 5 km.'}</p></div>`;
+        }
+
+        infoEl.innerHTML = infoHTML;
+        document.getElementById('sidebar').classList.add('visible');
+        map.invalidateSize();
+
+        infoEl.querySelectorAll('#pubs-list li').forEach(li => {
+          li.addEventListener('click', () => {
+            const idx = parseInt(li.dataset.idx);
+            pubMarkers[idx].openPopup();
+            map.panTo(pubMarkers[idx].getLatLng());
+            showPubDetail(pubs[idx]);
+          });
+        });
+
+        map.fitBounds(bounds, { padding: [40, 40] });
+        m3.openPopup();
+      } catch (e) {
+        errorEl.textContent = e.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Find Midpoint';
+      }
+    }
+  </script>
+</body>
+</html>
