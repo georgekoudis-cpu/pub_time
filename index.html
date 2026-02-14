@@ -36,8 +36,11 @@
     #map { flex: 1; min-height: 0; }
     #error { color: #c1121f; font-size: 13px; margin-top: 4px; }
     #error:empty { display: none; }
-    #sidebar { display: none; width: 360px; min-width: 360px; border-right: 1px solid var(--light); overflow-y: auto; background: var(--white); }
+    #sidebar { display: none; width: 360px; min-width: 360px; border-right: 1px solid var(--light); overflow-y: auto; background: var(--white); position: relative; transition: margin-left 0.25s ease; }
     #sidebar.visible { display: block; }
+    #sidebar.collapsed { margin-left: -360px; }
+    #sidebar-toggle { position: absolute; top: 12px; right: -32px; width: 28px; height: 28px; background: var(--white); border: 1px solid var(--light); border-left: none; border-radius: 0 6px 6px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--forest); z-index: 500; padding: 0; }
+    #sidebar-toggle:hover { background: var(--light); }
     #info { padding: 16px; font-size: 14px; }
     .drives { display: flex; flex-direction: column; gap: 8px; }
     .drives .route { }
@@ -73,7 +76,7 @@
     <div id="error"></div>
   </div>
   <div id="main">
-    <div id="sidebar"><div id="info"></div></div>
+    <div id="sidebar"><button id="sidebar-toggle" onclick="toggleSidebar()" title="Collapse sidebar">&#9664;</button><div id="info"></div></div>
     <div id="map"></div>
   </div>
   <script>
@@ -204,6 +207,15 @@
     let lastLabels = [];
     let lastRoutes = [];
     let currentVenueType = 'pubs';
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const btn = document.getElementById('sidebar-toggle');
+      sidebar.classList.toggle('collapsed');
+      btn.innerHTML = sidebar.classList.contains('collapsed') ? '&#9654;' : '&#9664;';
+      btn.title = sidebar.classList.contains('collapsed') ? 'Expand sidebar' : 'Collapse sidebar';
+      setTimeout(() => map.invalidateSize(), 260);
+    }
 
     const redIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png', shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] });
     const pubIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-gold.png', shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] });
