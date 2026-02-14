@@ -57,6 +57,10 @@
     .pub-detail .pub-links a:hover { opacity: 0.85; }
     .pub-detail .pub-links a.secondary { background: var(--ash); color: var(--forest); }
     .pub-detail .pub-links a.secondary:hover { opacity: 0.85; }
+    .venue-toggle { display: flex; gap: 0; margin-bottom: 12px; border-radius: 6px; overflow: hidden; border: 1px solid var(--ash); }
+    .venue-toggle button { flex: 1; padding: 8px 12px; border: none; font-size: 13px; font-family: inherit; font-weight: 600; cursor: pointer; background: var(--light); color: var(--forest); transition: background 0.15s, color 0.15s; }
+    .venue-toggle button.active { background: var(--forest); color: var(--white); }
+    .venue-toggle button:not(:last-child) { border-right: 1px solid var(--ash); }
   </style>
 </head>
 <body>
@@ -196,6 +200,10 @@
     let markers = [];
     let routeLayers = [];
     let pubMarkers = [];
+    let lastMid = null;
+    let lastLabels = [];
+    let lastRoutes = [];
+    let currentVenueType = 'pubs';
 
     const redIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png', shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] });
     const pubIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-gold.png', shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] });
@@ -217,18 +225,43 @@
       throw new Error('All Overpass servers unavailable');
     }
 
-    async function findNearbyPubs(lat, lon) {
+    const VENUE_CONFIG = {
+      pubs: {
+        tags: [['amenity', 'pub'], ['amenity', 'bar']],
+        fallbackName: 'Unnamed pub',
+        label: 'pubs',
+        websiteLabel: 'Pub website',
+      },
+      restaurants: {
+        tags: [['amenity', 'restaurant'], ['amenity', 'cafe']],
+        fallbackName: 'Unnamed restaurant',
+        label: 'restaurants',
+        websiteLabel: 'Restaurant website',
+      },
+      parks: {
+        tags: [['leisure', 'park'], ['leisure', 'garden']],
+        fallbackName: 'Unnamed park',
+        label: 'parks',
+        websiteLabel: 'Website',
+      },
+    };
+
+    async function findNearbyVenues(lat, lon, type) {
+      const config = VENUE_CONFIG[type];
       const radius = 5000;
-      const query = `[out:json][timeout:25];(node["amenity"="pub"](around:${radius},${lat},${lon});way["amenity"="pub"](around:${radius},${lat},${lon});node["amenity"="bar"](around:${radius},${lat},${lon});way["amenity"="bar"](around:${radius},${lat},${lon}););out center body;`;
+      const tagQueries = config.tags.map(([k, v]) =>
+        `node["${k}"="${v}"](around:${radius},${lat},${lon});way["${k}"="${v}"](around:${radius},${lat},${lon});`
+      ).join('');
+      const query = `[out:json][timeout:25];(${tagQueries});out center body;`;
       const data = await queryOverpass(query);
-      const pubs = data.elements.map(el => {
+      const venues = data.elements.map(el => {
         const elLat = el.lat ?? el.center?.lat;
         const elLon = el.lon ?? el.center?.lon;
         if (!elLat || !elLon) return null;
         const d = Math.sqrt((elLat - lat) ** 2 + (elLon - lon) ** 2) * 111320;
         const t = el.tags || {};
         return {
-          name: t.name || 'Unnamed pub', lat: elLat, lon: elLon, dist: d,
+          name: t.name || config.fallbackName, lat: elLat, lon: elLon, dist: d,
           addr: [t['addr:housenumber'], t['addr:street'], t['addr:city']].filter(Boolean).join(', '),
           website: t.website || t['contact:website'] || '',
           phone: t.phone || t['contact:phone'] || '',
@@ -238,8 +271,8 @@
           wikidata: t.wikidata || '',
         };
       });
-      pubs.sort((a, b) => a.dist - b.dist);
-      return pubs.filter(Boolean).slice(0, 5);
+      venues.sort((a, b) => a.dist - b.dist);
+      return venues.filter(Boolean).slice(0, 5);
     }
 
     function googleMapsSearchUrl(name, lat, lon) {
@@ -352,7 +385,7 @@
         ${photoHTML}
         <div class="pub-meta">${metaLines.join('<br>')}</div>
         <div class="pub-links">
-          ${pub.website ? `<a href="${pub.website}" target="_blank">Pub website</a>` : ''}
+          ${pub.website ? `<a href="${pub.website}" target="_blank">${VENUE_CONFIG[currentVenueType].websiteLabel}</a>` : ''}
           <a href="${gmapsUrl}" target="_blank" class="${pub.website ? 'secondary' : ''}">Google Maps (reviews &amp; photos)</a>
         </div>
       </div>`;
@@ -416,6 +449,64 @@
       }
 
       return { lat: bestLat, lon: bestLon, routes: bestRoutes };
+    }
+
+    function renderVenueToggle(activeType) {
+      const types = ['pubs', 'restaurants', 'parks'];
+      const labels = { pubs: 'Pubs', restaurants: 'Restaurants', parks: 'Parks' };
+      return `<div class="venue-toggle">` +
+        types.map(t => `<button class="${t === activeType ? 'active' : ''}" onclick="switchVenueType('${t}')">${labels[t]}</button>`).join('') +
+        `</div>`;
+    }
+
+    async function loadVenues(type, lat, lon, bounds, btn) {
+      const config = VENUE_CONFIG[type];
+      const resultsEl = document.getElementById('venue-results');
+      if (!resultsEl) return;
+
+      if (btn) btn.textContent = `Finding ${config.label}...`;
+      resultsEl.innerHTML = `<div id="pubs-list"><h3>Searching for ${config.label}...</h3></div>`;
+
+      let venues = [];
+      let venueError = '';
+      try { venues = await findNearbyVenues(lat, lon, type); } catch (e) { venueError = e.message; console.warn('Venue search failed:', e); }
+
+      if (venues.length) {
+        venues.forEach((v, i) => {
+          const gmapsUrl = googleMapsSearchUrl(v.name, v.lat, v.lon);
+          const pm = L.marker([v.lat, v.lon], { icon: pubIcon }).addTo(map)
+            .bindPopup(`<b>${i + 1}. ${v.name}</b>${v.addr ? '<br>' + v.addr : ''}<br>${Math.round(v.dist)}m from midpoint<br><a href="${gmapsUrl}" target="_blank">View on Google Maps</a>`);
+          pubMarkers.push(pm);
+          if (bounds) bounds.extend([v.lat, v.lon]);
+        });
+        resultsEl.innerHTML = `<div id="pubs-list"><h3>Nearest ${config.label} to midpoint</h3><ol>` +
+          venues.map((v, i) =>
+            `<li data-idx="${i}">${v.name} <span>${Math.round(v.dist)}m away${v.addr ? ' &middot; ' + v.addr : ''}</span></li>`
+          ).join('') + `</ol><div id="pub-detail"></div></div>`;
+        resultsEl.querySelectorAll('#pubs-list li').forEach(li => {
+          li.addEventListener('click', () => {
+            const idx = parseInt(li.dataset.idx);
+            pubMarkers[idx].openPopup();
+            map.panTo(pubMarkers[idx].getLatLng());
+            showPubDetail(venues[idx]);
+          });
+        });
+      } else {
+        resultsEl.innerHTML = `<div id="pubs-list"><h3>Nearest ${config.label} to midpoint</h3><p style="color:#6c757d">${venueError ? 'Search failed — try again. (' + venueError + ')' : `No ${config.label} found within 5 km.`}</p></div>`;
+      }
+    }
+
+    async function switchVenueType(type) {
+      if (type === currentVenueType || !lastMid) return;
+      currentVenueType = type;
+      // Update toggle styling
+      document.querySelectorAll('.venue-toggle button').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.toLowerCase() === type);
+      });
+      // Clear existing venue markers
+      pubMarkers.forEach(m => map.removeLayer(m));
+      pubMarkers = [];
+      await loadVenues(type, lastMid.lat, lastMid.lon, null, null);
     }
 
     async function findMidpoint() {
@@ -493,40 +584,22 @@
         }
         m3.bindPopup(midPopup);
 
-        // Find nearby pubs
-        btn.textContent = 'Finding pubs...';
-        let pubs = [];
-        let pubError = '';
-        try { pubs = await findNearbyPubs(mid.lat, mid.lon); } catch (e) { pubError = e.message; console.warn('Pub search failed:', e); }
+        // Store state for venue toggle re-queries
+        lastMid = { lat: mid.lat, lon: mid.lon };
+        lastLabels = labels;
+        lastRoutes = mid.routes;
+        currentVenueType = 'pubs';
 
-        if (pubs.length) {
-          pubs.forEach((pub, i) => {
-            const gmapsUrl = googleMapsSearchUrl(pub.name, pub.lat, pub.lon);
-            const pm = L.marker([pub.lat, pub.lon], { icon: pubIcon }).addTo(map)
-              .bindPopup(`<b>${i + 1}. ${pub.name}</b>${pub.addr ? '<br>' + pub.addr : ''}<br>${Math.round(pub.dist)}m from midpoint<br><a href="${gmapsUrl}" target="_blank">View on Google Maps</a>`);
-            pubMarkers.push(pm);
-            bounds.extend([pub.lat, pub.lon]);
-          });
-          infoHTML += `<div id="pubs-list"><h3>Nearest pubs to midpoint</h3><ol>` +
-            pubs.map((pub, i) =>
-              `<li data-idx="${i}">${pub.name} <span>${Math.round(pub.dist)}m away${pub.addr ? ' &middot; ' + pub.addr : ''}</span></li>`
-            ).join('') + `</ol><div id="pub-detail"></div></div>`;
-        } else {
-          infoHTML += `<div id="pubs-list"><h3>Nearest pubs to midpoint</h3><p style="color:#6c757d">${pubError ? 'Pub search failed — try again. (' + pubError + ')' : 'No pubs found within 5 km.'}</p></div>`;
-        }
+        // Add toggle + venue list
+        infoHTML += renderVenueToggle('pubs');
+        infoHTML += `<div id="venue-results"></div>`;
 
         infoEl.innerHTML = infoHTML;
         document.getElementById('sidebar').classList.add('visible');
         map.invalidateSize();
 
-        infoEl.querySelectorAll('#pubs-list li').forEach(li => {
-          li.addEventListener('click', () => {
-            const idx = parseInt(li.dataset.idx);
-            pubMarkers[idx].openPopup();
-            map.panTo(pubMarkers[idx].getLatLng());
-            showPubDetail(pubs[idx]);
-          });
-        });
+        // Load initial venues
+        await loadVenues('pubs', mid.lat, mid.lon, bounds, btn);
 
         map.fitBounds(bounds, { padding: [40, 40] });
         m3.openPopup();
