@@ -52,6 +52,8 @@
     #pubs-list li { margin-bottom: 3px; cursor: pointer; color: var(--forest); }
     #pubs-list li:hover { text-decoration: underline; }
     #pubs-list li span { color: var(--ash); font-size: 12px; }
+    #pubs-list li a.review-link { color: var(--forest); font-size: 12px; font-weight: 600; margin-left: 4px; text-decoration: none; }
+    #pubs-list li a.review-link:hover { text-decoration: underline; }
     .pub-detail { margin-top: 10px; padding: 12px; background: var(--light); border-radius: 8px; border: 1px solid var(--ash); }
     .pub-detail h3 { font-size: 16px; margin-bottom: 8px; color: var(--forest); }
     .pub-detail .pub-meta { font-size: 13px; color: var(--forest); line-height: 1.6; }
@@ -493,9 +495,10 @@
           if (bounds) bounds.extend([v.lat, v.lon]);
         });
         resultsEl.innerHTML = `<div id="pubs-list"><h3>Nearest ${config.label} to midpoint</h3><ol>` +
-          venues.map((v, i) =>
-            `<li data-idx="${i}">${v.name} <span>${Math.round(v.dist)}m away${v.addr ? ' &middot; ' + v.addr : ''}</span></li>`
-          ).join('') + `</ol><div id="pub-detail"></div></div>`;
+          venues.map((v, i) => {
+            const reviewUrl = googleMapsSearchUrl(v.name, v.lat, v.lon);
+            return `<li data-idx="${i}">${v.name} <span>${Math.round(v.dist)}m away${v.addr ? ' &middot; ' + v.addr : ''}</span> <a class="review-link" href="${reviewUrl}" target="_blank" onclick="event.stopPropagation()">See reviews</a></li>`;
+          }).join('') + `</ol><div id="pub-detail"></div></div>`;
         resultsEl.querySelectorAll('#pubs-list li').forEach(li => {
           li.addEventListener('click', () => {
             const idx = parseInt(li.dataset.idx);
