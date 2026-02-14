@@ -36,9 +36,10 @@
     #map { flex: 1; min-height: 0; }
     #error { color: #c1121f; font-size: 13px; margin-top: 4px; }
     #error:empty { display: none; }
-    #sidebar { display: none; width: 360px; min-width: 360px; border-right: 1px solid var(--light); overflow-y: auto; background: var(--white); position: relative; transition: margin-left 0.25s ease; }
-    #sidebar.visible { display: block; }
-    #sidebar.collapsed { margin-left: -360px; }
+    #sidebar-wrap { display: none; position: relative; flex-shrink: 0; }
+    #sidebar-wrap.visible { display: flex; }
+    #sidebar { width: 360px; border-right: 1px solid var(--light); overflow-y: auto; background: var(--white); transition: width 0.25s ease, min-width 0.25s ease; min-width: 360px; }
+    #sidebar-wrap.collapsed #sidebar { width: 0; min-width: 0; overflow: hidden; border-right: none; }
     #sidebar-toggle { position: absolute; top: 12px; right: -32px; width: 28px; height: 28px; background: var(--white); border: 1px solid var(--light); border-left: none; border-radius: 0 6px 6px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--forest); z-index: 500; padding: 0; }
     #sidebar-toggle:hover { background: var(--light); }
     #info { padding: 16px; font-size: 14px; }
@@ -76,7 +77,7 @@
     <div id="error"></div>
   </div>
   <div id="main">
-    <div id="sidebar"><button id="sidebar-toggle" onclick="toggleSidebar()" title="Collapse sidebar">&#9664;</button><div id="info"></div></div>
+    <div id="sidebar-wrap"><div id="sidebar"><div id="info"></div></div><button id="sidebar-toggle" onclick="toggleSidebar()" title="Collapse sidebar">&#9664;</button></div>
     <div id="map"></div>
   </div>
   <script>
@@ -209,11 +210,11 @@
     let currentVenueType = 'pubs';
 
     function toggleSidebar() {
-      const sidebar = document.getElementById('sidebar');
+      const wrap = document.getElementById('sidebar-wrap');
       const btn = document.getElementById('sidebar-toggle');
-      sidebar.classList.toggle('collapsed');
-      btn.innerHTML = sidebar.classList.contains('collapsed') ? '&#9654;' : '&#9664;';
-      btn.title = sidebar.classList.contains('collapsed') ? 'Expand sidebar' : 'Collapse sidebar';
+      wrap.classList.toggle('collapsed');
+      btn.innerHTML = wrap.classList.contains('collapsed') ? '&#9654;' : '&#9664;';
+      btn.title = wrap.classList.contains('collapsed') ? 'Expand sidebar' : 'Collapse sidebar';
       setTimeout(() => map.invalidateSize(), 260);
     }
 
@@ -539,7 +540,8 @@
       pubMarkers.forEach(m => map.removeLayer(m));
       pubMarkers = [];
       document.getElementById('info').innerHTML = '';
-      document.getElementById('sidebar').classList.remove('visible');
+      document.getElementById('sidebar-wrap').classList.remove('visible', 'collapsed');
+      document.getElementById('sidebar-toggle').innerHTML = '&#9664;';
       map.invalidateSize();
 
       btn.disabled = true;
@@ -607,7 +609,7 @@
         infoHTML += `<div id="venue-results"></div>`;
 
         infoEl.innerHTML = infoHTML;
-        document.getElementById('sidebar').classList.add('visible');
+        document.getElementById('sidebar-wrap').classList.add('visible');
         map.invalidateSize();
 
         // Load initial venues
