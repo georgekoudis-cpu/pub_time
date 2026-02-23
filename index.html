@@ -3,84 +3,198 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Midpoint Finder</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600&display=swap" />
+  <title>MeetYouThere</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,600;0,700;1,700&display=swap" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
-    :root { --forest: #201D20; --ash: #B7B7A4; --light: #D4D4D4; --white: #F0EFEB; }
+    :root {
+      --midnight: #24282C;
+      --soft-grey: #F3F4F6;
+      --electric-mint: #3DDC97;
+      --electric-blue: #3DDCD7;
+      --peach: #FF9F7F;
+      --white: #FFFFFF;
+      --selected-bg: #303337;
+      --primary-blue: #272A47;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Work Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; height: 100vh; color: var(--forest); background: var(--white); }
-    .controls { padding: 12px 16px; background: var(--forest); border-bottom: 1px solid var(--ash); }
-    #main { display: flex; flex: 1; min-height: 0; }
-    .addr-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; display: flex; height: 100vh; color: var(--white); background: var(--midnight); }
+
+    #main { display: flex; flex: 1; min-height: 0; width: 100%; }
+
+    /* --- Sidebar --- */
+    #sidebar-wrap { position: relative; flex-shrink: 0; display: flex; }
+    #sidebar { width: 424px; min-width: 424px; background: var(--midnight); overflow-y: auto; transition: width 0.25s ease, min-width 0.25s ease; display: flex; flex-direction: column; }
+    #sidebar-wrap.collapsed #sidebar { width: 0; min-width: 0; overflow: hidden; }
+
+    /* Sidebar toggle arrow */
+    #sidebar-toggle { position: absolute; top: 29px; right: -30px; width: 30px; height: 100px; background: var(--midnight); border: none; border-radius: 0 10px 10px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--white); z-index: 500; padding: 0; }
+    #sidebar-toggle:hover { opacity: 0.85; }
+
+    /* --- Brand / Header --- */
+    .brand-header { display: flex; align-items: center; padding: 36px 48px; border-bottom: 1px solid var(--soft-grey); }
+    .brand { font-size: 24px; font-weight: 700; color: var(--white); letter-spacing: -0.3px; }
+    .brand .peach { color: var(--peach); }
+
+    /* --- Sidebar content --- */
+    .sidebar-content { padding: 24px 48px 0; display: flex; flex-direction: column; gap: 12px; }
+
+    /* --- Address rows --- */
+    .addr-row { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; }
+    .addr-pin { width: 24px; height: 24px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .addr-pin svg { width: 20px; height: 20px; }
     .addr-wrap { flex: 1; position: relative; }
-    .addr-wrap input { width: 100%; padding: 8px 12px; border: 1px solid var(--ash); border-radius: 6px; font-size: 14px; background: var(--white); color: var(--forest); font-family: inherit; }
-    .addr-wrap input::placeholder { color: var(--ash); }
-    .ac-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--white); border: 1px solid var(--ash); border-top: none; border-radius: 0 0 6px 6px; max-height: 200px; overflow-y: auto; z-index: 1000; display: none; }
-    .ac-list div { padding: 6px 12px; font-size: 13px; cursor: pointer; color: var(--forest); }
-    .ac-list div:hover, .ac-list div.active { background: var(--light); }
-    .ac-list div small { color: var(--ash); }
-    .addr-label { font-size: 12px; color: var(--white); width: 80px; min-width: 80px; font-weight: 600; background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 2px 4px; font-family: inherit; cursor: text; }
-    .addr-label:hover { border-color: rgba(255,255,255,0.3); }
-    .addr-label:focus { outline: none; border-color: var(--ash); background: rgba(255,255,255,0.1); color: var(--white); }
-    .remove-btn { background: none; border: none; color: var(--light); font-size: 18px; cursor: pointer; padding: 4px 8px; line-height: 1; border-radius: 4px; }
-    .remove-btn:hover { background: rgba(255,255,255,0.1); color: var(--white); }
-    .btn-row { display: flex; gap: 8px; align-items: center; }
-    .btn-row button { padding: 8px 16px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; white-space: nowrap; font-family: inherit; font-weight: 600; }
-    #findBtn { background: var(--ash); color: var(--forest); }
-    #findBtn:hover { background: var(--light); }
-    #findBtn:disabled { background: var(--ash); opacity: 0.5; cursor: not-allowed; }
-    #addFriendBtn { background: transparent; color: var(--ash); border: 1px solid var(--ash); }
-    #addFriendBtn:hover { background: rgba(255,255,255,0.1); color: var(--white); border-color: var(--white); }
-    #map { flex: 1; min-height: 0; }
-    #error { color: #c1121f; font-size: 13px; margin-top: 4px; }
+    .addr-wrap input {
+      width: 100%; padding: 12px 20px; font-size: 16px; line-height: 19px;
+      background: rgba(255, 255, 255, 0.1); border: 1px solid var(--white);
+      border-radius: 100px; color: var(--white); font-family: inherit; font-weight: 400;
+    }
+    .addr-wrap input::placeholder { color: rgba(255,255,255,0.5); }
+    .addr-wrap input:focus { outline: none; border-color: var(--electric-mint); }
+    .ac-list { position: absolute; top: 100%; left: 10px; right: 10px; background: var(--midnight); border: 1px solid var(--soft-grey); border-top: none; border-radius: 0 0 12px 12px; max-height: 200px; overflow-y: auto; z-index: 1000; display: none; }
+    .ac-list div { padding: 10px 16px; font-size: 14px; cursor: pointer; color: var(--white); }
+    .ac-list div:hover, .ac-list div.active { background: var(--selected-bg); }
+    .ac-list div small { color: rgba(255,255,255,0.5); }
+    .addr-label { display: none; }
+    .remove-btn { background: none; border: none; color: rgba(255,255,255,0.5); font-size: 18px; cursor: pointer; padding: 4px 8px; line-height: 1; border-radius: 4px; }
+    .remove-btn:hover { color: var(--white); }
+
+    /* --- Buttons --- */
+    .btn-row { display: flex; align-items: center; gap: 24px; }
+    #addFriendBtn { background: transparent; border: none; color: var(--white); font-size: 16px; cursor: pointer; font-family: inherit; font-weight: 700; padding: 12px 0; display: flex; align-items: center; gap: 10px; }
+    #addFriendBtn:hover { opacity: 0.8; }
+    #findBtn { display: none; }
+
+    #error { color: #ef5350; font-size: 14px; margin-top: 4px; padding: 0 48px; }
     #error:empty { display: none; }
-    #sidebar-wrap { display: none; position: relative; flex-shrink: 0; }
-    #sidebar-wrap.visible { display: flex; }
-    #sidebar { width: 360px; border-right: 1px solid var(--light); overflow-y: auto; background: var(--white); transition: width 0.25s ease, min-width 0.25s ease; min-width: 360px; }
-    #sidebar-wrap.collapsed #sidebar { width: 0; min-width: 0; overflow: hidden; border-right: none; }
-    #sidebar-toggle { position: absolute; top: 80px; right: -32px; width: 28px; height: 28px; background: var(--white); border: 1px solid var(--light); border-left: none; border-radius: 0 6px 6px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--forest); z-index: 500; padding: 0; }
-    #sidebar-toggle:hover { background: var(--light); }
-    #info { padding: 16px; font-size: 14px; }
-    .drives { display: flex; flex-direction: column; gap: 8px; }
-    .drives .route { }
-    .drives .route b { display: block; margin-bottom: 2px; }
-    #pubs-list { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--light); }
-    #pubs-list h3 { font-size: 14px; margin-bottom: 6px; color: var(--forest); }
-    #pubs-list ol { margin: 0; padding-left: 20px; }
-    #pubs-list li { margin-bottom: 3px; cursor: pointer; color: var(--forest); }
-    #pubs-list li:hover { text-decoration: underline; }
-    #pubs-list li span { color: var(--ash); font-size: 12px; }
-    #pubs-list li a.review-link { color: var(--forest); font-size: 12px; font-weight: 600; margin-left: 4px; text-decoration: none; }
-    #pubs-list li a.review-link:hover { text-decoration: underline; }
-    .pub-detail { margin-top: 10px; padding: 12px; background: var(--light); border-radius: 8px; border: 1px solid var(--ash); }
-    .pub-detail h3 { font-size: 16px; margin-bottom: 8px; color: var(--forest); }
-    .pub-detail .pub-meta { font-size: 13px; color: var(--forest); line-height: 1.6; }
-    .pub-detail .pub-photo { width: 100%; max-height: 200px; object-fit: cover; border-radius: 6px; margin-bottom: 8px; }
-    .pub-detail .pub-links { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-    .pub-detail .pub-links a { display: inline-block; padding: 4px 12px; background: var(--forest); color: var(--white); border-radius: 4px; text-decoration: none; font-size: 13px; }
-    .pub-detail .pub-links a:hover { opacity: 0.85; }
-    .pub-detail .pub-links a.secondary { background: var(--ash); color: var(--forest); }
-    .pub-detail .pub-links a.secondary:hover { opacity: 0.85; }
-    .venue-toggle { display: flex; gap: 0; margin-top: 16px; margin-bottom: 12px; border-radius: 6px; overflow: hidden; border: 1px solid var(--ash); }
-    .venue-toggle button { flex: 1; padding: 8px 12px; border: none; font-size: 13px; font-family: inherit; font-weight: 600; cursor: pointer; background: var(--light); color: var(--forest); transition: background 0.15s, color 0.15s; }
-    .venue-toggle button.active { background: var(--forest); color: var(--white); }
-    .venue-toggle button:not(:last-child) { border-right: 1px solid var(--ash); }
+
+    /* --- Map container --- */
+    .map-container { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
+    #map { flex: 1; min-height: 0; }
+
+    /* --- Footer on map --- */
+    .map-footer {
+      display: flex; align-items: center; justify-content: center;
+      padding: 12px 240px; background: var(--soft-grey);
+      border-top: 1px solid var(--midnight);
+      font-size: 16px; line-height: 19px; font-weight: 400;
+      color: var(--midnight); text-align: center;
+    }
+
+    /* --- Info / Results area --- */
+    #info { font-size: 16px; line-height: 19px; }
+
+    /* --- Drive chips (on selected venue) --- */
+    .drive-info {
+      display: flex; align-items: center; padding: 12px;
+      background: rgba(61, 220, 215, 0.15); border: 1px solid var(--electric-blue);
+      border-radius: 10px; font-style: italic; font-weight: 700;
+      font-size: 14px; line-height: 16px; color: var(--white); gap: 10px;
+    }
+
+    /* --- Venue toggle tabs --- */
+    .venue-toggle { display: flex; border-bottom: 1px solid var(--white); padding-top: 12px; }
+    .venue-toggle button {
+      flex: 1; background: none; border: none; border-bottom: 5px solid transparent;
+      font-size: 16px; font-family: inherit; font-weight: 700; cursor: pointer;
+      color: var(--white); padding: 12px 24px 24px; text-align: center;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .venue-toggle button.active { color: var(--electric-mint); border-bottom-color: var(--electric-mint); }
+    .venue-toggle button:hover:not(.active) { opacity: 0.8; }
+
+    /* --- Venue list --- */
+    #pubs-list { }
+    #pubs-list h3 { font-size: 16px; margin-bottom: 6px; color: var(--white); font-weight: 600; padding: 16px 48px 0; }
+    #pubs-list .venue-list { list-style: none; margin: 0; padding: 0; }
+
+    #pubs-list .venue-item {
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 24px 48px; gap: 10px; cursor: pointer;
+      background: var(--midnight); border-bottom: 1px solid var(--white);
+    }
+    #pubs-list .venue-item:hover { background: var(--selected-bg); }
+    #pubs-list .venue-item.selected {
+      background: var(--selected-bg); border-left: 5px solid var(--electric-blue);
+      padding-left: 43px; box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+    }
+    #pubs-list .venue-name { font-weight: 600; color: var(--white); font-size: 16px; line-height: 19px; }
+    #pubs-list .venue-item.selected .venue-name { font-weight: 700; font-size: 24px; line-height: 28px; }
+    #pubs-list .venue-meta { color: var(--white); font-size: 16px; line-height: 19px; font-weight: 400; }
+    #pubs-list a.review-link { display: none; }
+
+    /* --- Venue detail --- */
+    .pub-detail { margin: 0; }
+    .pub-detail-card {
+      padding: 24px 48px; background: var(--midnight);
+    }
+    .pub-detail-card h3 { font-size: 24px; line-height: 28px; margin-bottom: 8px; color: var(--white); font-weight: 700; }
+    .pub-detail-card .pub-meta { font-size: 16px; color: var(--white); line-height: 19px; font-weight: 400; margin-bottom: 12px; }
+    .pub-detail-card .pub-photo { width: 100%; max-height: 180px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; }
+    .pub-detail-card .pub-links { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+    .pub-detail-card .pub-links a {
+      display: inline-block; padding: 8px 16px; background: var(--electric-mint);
+      color: var(--midnight); border-radius: 8px; text-decoration: none;
+      font-size: 14px; font-weight: 700;
+    }
+    .pub-detail-card .pub-links a:hover { opacity: 0.85; }
+    .pub-detail-card .pub-links a.secondary { background: var(--soft-grey); color: var(--midnight); }
+
+    /* --- Leaflet popup dark theme --- */
+    .leaflet-popup-content-wrapper {
+      background: var(--midnight) !important; color: var(--white) !important;
+      border-radius: 0 0 10px 10px !important;
+      box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25) !important;
+      padding: 0 !important;
+    }
+    .leaflet-popup-tip { background: var(--midnight) !important; }
+    .leaflet-popup-content {
+      font-family: 'Roboto', sans-serif; font-size: 16px; line-height: 19px;
+      margin: 0 !important; width: auto !important;
+    }
+    .popup-header {
+      background: var(--electric-blue); padding: 12px 24px; border-radius: 10px 10px 0 0;
+      font-style: italic; font-weight: 700; font-size: 14px; line-height: 16px;
+      color: var(--midnight);
+    }
+    .popup-body { padding: 16px 24px; }
+    .popup-body b { color: var(--white); font-weight: 700; font-size: 16px; }
+    .popup-body a { color: var(--electric-mint) !important; text-decoration: none; }
+    .popup-body a:hover { text-decoration: underline; }
+    .leaflet-popup-close-button { color: var(--midnight) !important; font-size: 20px !important; top: 8px !important; right: 10px !important; }
+    .leaflet-popup-close-button:hover { color: var(--white) !important; }
+
+    /* Leaflet controls */
+    .leaflet-control-attribution { background: rgba(36,40,44,0.7) !important; color: rgba(255,255,255,0.5) !important; font-size: 10px !important; }
+    .leaflet-control-attribution a { color: rgba(255,255,255,0.5) !important; }
   </style>
 </head>
 <body>
-  <div class="controls">
-    <div id="addr-fields"></div>
-    <div class="btn-row">
-      <button id="addFriendBtn" onclick="addFriend()">+ Add friend</button>
-      <button id="findBtn" onclick="findMidpoint()">Let's Meet!</button>
-    </div>
-    <div id="error"></div>
-  </div>
   <div id="main">
-    <div id="sidebar-wrap"><div id="sidebar"><div id="info"></div></div><button id="sidebar-toggle" onclick="toggleSidebar()" title="Collapse sidebar">&#9664;</button></div>
-    <div id="map"></div>
+    <div id="sidebar-wrap">
+      <div id="sidebar">
+        <div class="brand-header">
+          <div class="brand"><span class="peach">M</span>eet<span class="peach">Y</span>ou<span class="peach">T</span>here.</div>
+        </div>
+        <div class="sidebar-content">
+          <div id="addr-fields"></div>
+          <div class="btn-row">
+            <button id="addFriendBtn" onclick="addFriend()">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+              Add Friend
+            </button>
+          </div>
+        </div>
+        <div id="error"></div>
+        <div id="info"></div>
+      </div>
+      <button id="sidebar-toggle" onclick="toggleSidebar()" title="Collapse sidebar">&#9654;</button>
+    </div>
+    <div class="map-container">
+      <div id="map"></div>
+      <div class="map-footer">&copy; 2026 MeetYouThere Ltd. We'll meet you halfway.</div>
+    </div>
   </div>
   <script>
     const map = L.map('map').setView([39.8283, -98.5795], 4);
@@ -88,7 +202,6 @@
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    // Centre map on user's location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         pos => map.setView([pos.coords.latitude, pos.coords.longitude], 11),
@@ -106,9 +219,12 @@
         .catch(() => {});
     }
 
-    // --- Dynamic address fields ---
-    const ROUTE_COLORS = ['#0d6efd', '#198754', '#e85d04', '#6f42c1', '#d63384', '#20c997', '#fd7e14', '#0dcaf0'];
+    const ROUTE_COLORS = ['#E8683F', '#3DDC97', '#7C4DFF', '#3DDCD7', '#FF9F7F', '#0d6efd', '#d63384', '#20c997'];
     let addrCount = 0;
+
+    function pinSVG() {
+      return '<svg class="addr-pin" width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" fill="white"/></svg>';
+    }
 
     function addAddressField(label, placeholder, removable) {
       addrCount++;
@@ -117,9 +233,10 @@
       row.className = 'addr-row';
       row.id = `addr-row-${id}`;
       row.innerHTML =
+        pinSVG() +
         `<input type="text" class="addr-label" value="${label}" />` +
         `<div class="addr-wrap"><input type="text" id="addr-${id}" placeholder="${placeholder}" autocomplete="off" /><div class="ac-list" id="ac-${id}"></div></div>` +
-        (removable ? `<button class="remove-btn" onclick="removeFriend(${id})" title="Remove">&times;</button>` : '<span style="width:30px"></span>');
+        (removable ? `<button class="remove-btn" onclick="removeFriend(${id})" title="Remove">&times;</button>` : '');
       document.getElementById('addr-fields').appendChild(row);
       setupAutocomplete(`addr-${id}`, `ac-${id}`);
     }
@@ -134,11 +251,9 @@
       addAddressField(`Friend ${friendNum}`, `Friend ${friendNum}'s location`, true);
     }
 
-    // Initialize with 2 fields
     addAddressField('You', 'Your location', false);
     addAddressField('Friend 1', "Friend 1's location", true);
 
-    // --- Autocomplete ---
     function setupAutocomplete(inputId, listId) {
       const input = document.getElementById(inputId);
       const list = document.getElementById(listId);
@@ -202,7 +317,6 @@
       }
     }
 
-    // --- State ---
     let markers = [];
     let routeLayers = [];
     let pubMarkers = [];
@@ -378,15 +492,29 @@
       return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: data[0].display_name };
     }
 
-    async function showPubDetail(pub) {
+    function buildDriveInfoHTML() {
+      if (!lastRoutes) return '';
+      const parts = lastRoutes.map((route, i) => {
+        return `${lastLabels[i]}: ${formatDuration(route.duration)} \u2022 ${formatDistance(route.distance)}`;
+      });
+      return `<div class="drive-info">${parts.join(' | ')}</div>`;
+    }
+
+    async function showPubDetail(pub, idx) {
       const detailEl = document.getElementById('pub-detail');
       if (!detailEl) return;
+
+      // Highlight selected venue
+      document.querySelectorAll('#pubs-list .venue-item').forEach((el, i) => {
+        el.classList.toggle('selected', i === idx);
+      });
+
       const gmapsUrl = googleMapsSearchUrl(pub.name, pub.lat, pub.lon);
       let photoHTML = '';
       if (pub.image) {
         photoHTML = `<img class="pub-photo" src="${pub.image}" alt="${pub.name}" onerror="this.style.display='none'" />`;
       } else if (pub.wikidata) {
-        detailEl.innerHTML = `<div class="pub-detail"><p>Loading details...</p></div>`;
+        detailEl.innerHTML = `<div class="pub-detail-card"><p>Loading details...</p></div>`;
         const imgUrl = await getWikidataImage(pub.wikidata);
         if (imgUrl) photoHTML = `<img class="pub-photo" src="${imgUrl}" alt="${pub.name}" onerror="this.style.display='none'" />`;
       }
@@ -395,22 +523,18 @@
       if (pub.phone) metaLines.push(`Phone: ${pub.phone}`);
       if (pub.openingHours) metaLines.push(`Hours: ${pub.openingHours}`);
       if (pub.cuisine) metaLines.push(`Cuisine: ${pub.cuisine}`);
-      detailEl.innerHTML = `<div class="pub-detail">
-        <h3>${pub.name}</h3>
+      detailEl.innerHTML = `<div class="pub-detail-card">
         ${photoHTML}
         <div class="pub-meta">${metaLines.join('<br>')}</div>
+        ${buildDriveInfoHTML()}
         <div class="pub-links">
           ${pub.website ? `<a href="${pub.website}" target="_blank">${VENUE_CONFIG[currentVenueType].websiteLabel}</a>` : ''}
-          <a href="${gmapsUrl}" target="_blank" class="${pub.website ? 'secondary' : ''}">Google Maps (reviews &amp; photos)</a>
+          <a href="${gmapsUrl}" target="_blank" class="${pub.website ? 'secondary' : ''}">Google Maps</a>
         </div>
       </div>`;
     }
 
-    // --- N-person drive-time midpoint optimization ---
-    // Uses iterative approach: start at geographic centroid, then shift toward
-    // whoever has the longest drive, shrinking the step each iteration.
-    async function optimizeMidpoint(locations, btn) {
-      // Geographic centroid as starting point
+    async function optimizeMidpoint(locations, statusEl) {
       let candLat = locations.reduce((s, l) => s + l.lat, 0) / locations.length;
       let candLon = locations.reduce((s, l) => s + l.lon, 0) / locations.length;
 
@@ -418,15 +542,11 @@
       let bestRoutes = null;
       let bestMaxDur = Infinity;
 
-      // Adaptive step size based on spread of locations
-      const latSpread = Math.max(...locations.map(l => l.lat)) - Math.min(...locations.map(l => l.lat));
-      const lonSpread = Math.max(...locations.map(l => l.lon)) - Math.min(...locations.map(l => l.lon));
       let step = 0.3;
-
       const iterations = locations.length === 2 ? 6 : 7;
 
       for (let i = 0; i < iterations; i++) {
-        btn.textContent = `Optimizing (${i + 1}/${iterations})...`;
+        if (statusEl) statusEl.textContent = `Optimizing (${i + 1}/${iterations})...`;
 
         const routes = await Promise.all(
           locations.map(l => getRoute(l.lat, l.lon, candLat, candLon))
@@ -443,19 +563,16 @@
           bestRoutes = routes; bestMaxDur = maxDur;
         }
 
-        // Close enough — all drives within 1 minute of each other
         if (maxDur - minDur < 60) break;
 
-        // Shift toward the person with the longest drive
         const maxIdx = durations.indexOf(maxDur);
         const target = locations[maxIdx];
         candLat += (target.lat - candLat) * step;
         candLon += (target.lon - candLon) * step;
 
-        step *= 0.7; // shrink step
+        step *= 0.7;
       }
 
-      // Final route fetch at best point if we moved away
       if (bestLat !== candLat || bestLon !== candLon) {
         const finalRoutes = await Promise.all(
           locations.map(l => getRoute(l.lat, l.lon, bestLat, bestLon))
@@ -474,12 +591,12 @@
         `</div>`;
     }
 
-    async function loadVenues(type, lat, lon, bounds, btn) {
+    async function loadVenues(type, lat, lon, bounds, statusEl) {
       const config = VENUE_CONFIG[type];
       const resultsEl = document.getElementById('venue-results');
       if (!resultsEl) return;
 
-      if (btn) btn.textContent = `Finding ${config.label}...`;
+      if (statusEl) statusEl.textContent = `Finding ${config.label}...`;
       resultsEl.innerHTML = `<div id="pubs-list"><h3>Searching for ${config.label}...</h3></div>`;
 
       let venues = [];
@@ -489,37 +606,48 @@
       if (venues.length) {
         venues.forEach((v, i) => {
           const gmapsUrl = googleMapsSearchUrl(v.name, v.lat, v.lon);
+          const driveText = lastRoutes ? lastRoutes.map((r, ri) =>
+            `${lastLabels[ri]}: ${formatDuration(r.duration)} \u2022 ${formatDistance(r.distance)}`
+          ).join(' | ') : '';
+          const popupContent = `<div class="popup-header">${driveText}</div><div class="popup-body"><b>${v.name}</b>${v.addr ? '<br>' + v.addr : ''}<br><a href="${gmapsUrl}" target="_blank">View on Google Maps</a></div>`;
           const pm = L.marker([v.lat, v.lon], { icon: pubIcon }).addTo(map)
-            .bindPopup(`<b>${i + 1}. ${v.name}</b>${v.addr ? '<br>' + v.addr : ''}<br>${Math.round(v.dist)}m from midpoint<br><a href="${gmapsUrl}" target="_blank">View on Google Maps</a>`);
+            .bindPopup(popupContent, { maxWidth: 400, minWidth: 280 });
           pubMarkers.push(pm);
           if (bounds) bounds.extend([v.lat, v.lon]);
         });
-        resultsEl.innerHTML = `<div id="pubs-list"><h3>Nearest ${config.label} to midpoint</h3><ol>` +
+        let metaForVenue = (v) => {
+          let parts = [];
+          if (v.addr) parts.push(v.addr);
+          if (v.openingHours) parts.push(v.openingHours);
+          return parts.join(' \u2022 ');
+        };
+        resultsEl.innerHTML = `<div id="pubs-list"><ul class="venue-list">` +
           venues.map((v, i) => {
-            const reviewUrl = googleMapsSearchUrl(v.name, v.lat, v.lon);
-            return `<li data-idx="${i}">${v.name} <span>${Math.round(v.dist)}m away${v.addr ? ' &middot; ' + v.addr : ''}</span> <a class="review-link" href="${reviewUrl}" target="_blank" onclick="event.stopPropagation()">See reviews</a></li>`;
-          }).join('') + `</ol><div id="pub-detail"></div></div>`;
-        resultsEl.querySelectorAll('#pubs-list li').forEach(li => {
+            return `<li class="venue-item${i === 0 ? ' selected' : ''}" data-idx="${i}"><div class="venue-name">${v.name}</div><div class="venue-meta">${metaForVenue(v)}</div></li>`;
+          }).join('') + `</ul><div id="pub-detail"></div></div>`;
+
+        // Auto-show first venue detail with drive info
+        showPubDetail(venues[0], 0);
+
+        resultsEl.querySelectorAll('#pubs-list .venue-item').forEach(li => {
           li.addEventListener('click', () => {
             const idx = parseInt(li.dataset.idx);
             pubMarkers[idx].openPopup();
             map.panTo(pubMarkers[idx].getLatLng());
-            showPubDetail(venues[idx]);
+            showPubDetail(venues[idx], idx);
           });
         });
       } else {
-        resultsEl.innerHTML = `<div id="pubs-list"><h3>Nearest ${config.label} to midpoint</h3><p style="color:#6c757d">${venueError ? 'Search failed — try again. (' + venueError + ')' : `No ${config.label} found within 5 km.`}</p></div>`;
+        resultsEl.innerHTML = `<div id="pubs-list"><p style="color:rgba(255,255,255,0.5); padding: 24px 48px;">${venueError ? 'Search failed — try again. (' + venueError + ')' : `No ${config.label} found within 5 km.`}</p></div>`;
       }
     }
 
     async function switchVenueType(type) {
       if (type === currentVenueType || !lastMid) return;
       currentVenueType = type;
-      // Update toggle styling
       document.querySelectorAll('.venue-toggle button').forEach(btn => {
         btn.classList.toggle('active', btn.textContent.toLowerCase() === type);
       });
-      // Clear existing venue markers
       pubMarkers.forEach(m => map.removeLayer(m));
       pubMarkers = [];
       await loadVenues(type, lastMid.lat, lastMid.lon, null, null);
@@ -529,13 +657,11 @@
       const inputs = document.querySelectorAll('#addr-fields .addr-wrap input');
       const addresses = [...inputs].map(el => el.value.trim());
       const errorEl = document.getElementById('error');
-      const btn = document.getElementById('findBtn');
       errorEl.textContent = '';
 
       if (addresses.some(a => !a)) { errorEl.textContent = 'Please enter all addresses.'; return; }
       if (addresses.length < 2) { errorEl.textContent = 'Need at least 2 locations.'; return; }
 
-      // Clear previous results
       markers.forEach(m => map.removeLayer(m));
       markers = [];
       routeLayers.forEach(l => map.removeLayer(l));
@@ -543,35 +669,31 @@
       pubMarkers.forEach(m => map.removeLayer(m));
       pubMarkers = [];
       document.getElementById('info').innerHTML = '';
-      document.getElementById('sidebar-wrap').classList.remove('visible', 'collapsed');
-      document.getElementById('sidebar-toggle').innerHTML = '&#9664;';
-      map.invalidateSize();
 
-      btn.disabled = true;
-      btn.textContent = 'Geocoding...';
+      // Use addFriendBtn as status indicator
+      const statusEl = document.getElementById('addFriendBtn');
+      const origHTML = statusEl.innerHTML;
+      statusEl.disabled = true;
+      statusEl.textContent = 'Geocoding...';
 
       try {
-        // Geocode all addresses (sequentially to respect Nominatim rate limits)
         const locations = [];
         for (let i = 0; i < addresses.length; i++) {
-          btn.textContent = `Geocoding (${i + 1}/${addresses.length})...`;
+          statusEl.textContent = `Geocoding (${i + 1}/${addresses.length})...`;
           locations.push(await geocode(addresses[i]));
           if (i < addresses.length - 1) await new Promise(r => setTimeout(r, 300));
         }
 
-        // Get labels from the rows
         const labels = [...document.querySelectorAll('#addr-fields .addr-label')].map(el => el.value || 'Person');
 
-        // Place location markers
         locations.forEach((loc, i) => {
           const color = ROUTE_COLORS[i % ROUTE_COLORS.length];
           const m = L.marker([loc.lat, loc.lon]).addTo(map)
-            .bindPopup(`<b>${labels[i]}</b><br>${loc.name}`);
+            .bindPopup(`<div class="popup-body"><b>${labels[i]}</b><br>${loc.name}</div>`);
           markers.push(m);
         });
 
-        // Optimize midpoint
-        const mid = await optimizeMidpoint(locations, btn);
+        const mid = await optimizeMidpoint(locations, statusEl);
 
         const m3 = L.marker([mid.lat, mid.lon], { icon: redIcon }).addTo(map);
         markers.push(m3);
@@ -579,54 +701,57 @@
         const bounds = L.latLngBounds(locations.map(l => [l.lat, l.lon]));
         bounds.extend([mid.lat, mid.lon]);
 
-        // Draw routes and build info
-        let drivesHTML = '';
         if (mid.routes) {
           mid.routes.forEach((route, i) => {
             const color = ROUTE_COLORS[i % ROUTE_COLORS.length];
             const line = L.geoJSON(route.geometry, { style: { color, weight: 4, opacity: 0.7 } }).addTo(map);
             routeLayers.push(line);
             bounds.extend(line.getBounds());
-            drivesHTML += `<div class="route"><b style="color:${color}">${labels[i]}</b>${formatDuration(route.duration)} &middot; ${formatDistance(route.distance)}</div>`;
           });
         }
 
-        const infoEl = document.getElementById('info');
-        let infoHTML = drivesHTML ? `<div class="drives">${drivesHTML}</div>` : '<div style="color:#6c757d">Driving directions unavailable.</div>';
-
-        // Midpoint popup
-        let midPopup = `<b>Drive-time midpoint</b><br>${mid.lat.toFixed(5)}, ${mid.lon.toFixed(5)}`;
-        if (mid.routes) {
-          mid.routes.forEach((r, i) => { midPopup += `<br>${labels[i]}: ${formatDuration(r.duration)}`; });
-        }
-        m3.bindPopup(midPopup);
-
-        // Store state for venue toggle re-queries
         lastMid = { lat: mid.lat, lon: mid.lon };
         lastLabels = labels;
         lastRoutes = mid.routes;
         currentVenueType = 'pubs';
 
-        // Add toggle + venue list
-        infoHTML += renderVenueToggle('pubs');
-        infoHTML += `<div id="venue-results"></div>`;
+        let midPopupDrives = '';
+        if (mid.routes) {
+          midPopupDrives = mid.routes.map((r, i) =>
+            `${labels[i]}: ${formatDuration(r.duration)} \u2022 ${formatDistance(r.distance)}`
+          ).join(' | ');
+        }
+        m3.bindPopup(
+          `<div class="popup-header">${midPopupDrives}</div><div class="popup-body"><b>Drive-time midpoint</b><br>${mid.lat.toFixed(5)}, ${mid.lon.toFixed(5)}</div>`,
+          { maxWidth: 400, minWidth: 280 }
+        );
 
+        const infoEl = document.getElementById('info');
+        let infoHTML = renderVenueToggle('pubs');
+        infoHTML += `<div id="venue-results"></div>`;
         infoEl.innerHTML = infoHTML;
-        document.getElementById('sidebar-wrap').classList.add('visible');
         map.invalidateSize();
 
-        // Load initial venues
-        await loadVenues('pubs', mid.lat, mid.lon, bounds, btn);
+        await loadVenues('pubs', mid.lat, mid.lon, bounds, statusEl);
 
         map.fitBounds(bounds, { padding: [40, 40] });
         m3.openPopup();
       } catch (e) {
         errorEl.textContent = e.message;
       } finally {
-        btn.disabled = false;
-        btn.textContent = "Let's Meet!";
+        statusEl.disabled = false;
+        statusEl.innerHTML = origHTML;
       }
     }
+
+    // Trigger search on Enter from any address input
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target.matches('.addr-wrap input')) {
+        const acList = e.target.parentElement.querySelector('.ac-list');
+        if (acList && acList.style.display !== 'none') return;
+        findMidpoint();
+      }
+    });
   </script>
 </body>
 </html>
