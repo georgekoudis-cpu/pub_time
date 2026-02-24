@@ -463,10 +463,10 @@
             <div id="error"></div>
           </div>
           <div class="transport-bar">
-            <button class="transport-icon active" title="Walk">&#x1F6B6;</button>
-            <button class="transport-icon" title="Bike">&#x1F6B2;</button>
-            <button class="transport-icon" title="Car">&#x1F697;</button>
-            <button class="transport-icon" title="Train">&#x1F686;</button>
+            <button class="transport-icon active" title="Car" onclick="switchTransport(this)">&#x1F697;</button>
+            <button class="transport-icon" title="Walk" onclick="switchTransport(this)">&#x1F6B6;</button>
+            <button class="transport-icon" title="Bike" onclick="switchTransport(this)">&#x1F6B2;</button>
+            <button class="transport-icon" title="Train" onclick="switchTransport(this)">&#x1F686;</button>
           </div>
           <div id="info"></div>
         </div>
@@ -731,6 +731,10 @@
     let lastLabels = [];
     let lastRoutes = [];
     let currentVenueType = 'pubs';
+    let currentTransport = 'driving';
+    const TRANSPORT_PROFILES = { Car: 'driving', Walk: 'walking', Bike: 'cycling', Train: null };
+    const TRANSPORT_LABELS = { driving: '\u{1F697} Drive', walking: '\u{1F6B6} Walk', cycling: '\u{1F6B2} Bike' };
+    let lastLocations = [];
 
     function toggleSidebar() {
       const wrap = document.getElementById('sidebar-wrap');
@@ -876,7 +880,7 @@
     }
 
     async function getRoute(fromLat, fromLon, toLat, toLon) {
-      const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson`;
+      const url = `https://router.project-osrm.org/route/v1/${currentTransport}/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson`;
       const res = await fetchWithRetry(url);
       const data = await res.json();
       if (data.code !== 'Ok' || !data.routes.length) return null;
@@ -926,7 +930,7 @@
           const dur = lastRoutes[j] ? formatDuration(lastRoutes[j].duration) : '?';
           return `<div class="friend-time">${lbl}: ${dur}</div>`;
         }).join('');
-        friendsBoxHTML = `<div class="venue-friends-box"><div class="friends-title">Friends</div>${times}</div>`;
+        friendsBoxHTML = `<div class="venue-friends-box"><div class="friends-title">Friends (${TRANSPORT_LABELS[currentTransport]})</div>${times}</div>`;
       }
       detailEl.innerHTML = `<div class="pub-detail">
         <h3>${pub.name}</h3>
@@ -1031,7 +1035,7 @@
               return `${lbl}: ${dur}`;
             }).join(' | ');
           }
-          const popupHTML = `<div class="popup-header"><span class="popup-transport-pill">&#x1F6B6; Walk</span><span>${travelInfo}</span></div>` +
+          const popupHTML = `<div class="popup-header"><span class="popup-transport-pill">${TRANSPORT_LABELS[currentTransport]}</span><span>${travelInfo}</span></div>` +
             `<div class="popup-body">${v.image ? `<img src="${v.image}" alt="${v.name}" onerror="this.style.display='none'" />` : ''}` +
             `<div class="popup-info"><div class="popup-name">${v.name}</div>` +
             `<div class="popup-meta">${v.addr ? v.addr : ''}${v.addr && v.openingHours ? ' &bull; ' : ''}${v.openingHours || ''}</div></div></div>`;
@@ -1070,6 +1074,58 @@
       await loadVenues(type, lastMid.lat, lastMid.lon, null, null);
     }
 
+    function switchTransport(btn) {
+      const mode = btn.title;
+      const profile = TRANSPORT_PROFILES[mode];
+      if (profile === null) return; // Train not supported
+      if (profile === currentTransport) return;
+      currentTransport = profile;
+      document.querySelectorAll('.transport-icon').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (lastMid) recalculateRoutes();
+    }
+
+    async function recalculateRoutes() {
+      // Remove old route lines
+      routeLayers.forEach(l => map.removeLayer(l));
+      routeLayers = [];
+
+      // Fetch new routes from each person to midpoint
+      const newRoutes = await Promise.all(
+        lastLocations.map(l => getRoute(l.lat, l.lon, lastMid.lat, lastMid.lon))
+      );
+      lastRoutes = newRoutes;
+
+      // Draw new route lines
+      if (newRoutes) {
+        newRoutes.forEach((route, i) => {
+          if (!route) return;
+          const color = ROUTE_COLORS[i % ROUTE_COLORS.length];
+          const line = L.geoJSON(route.geometry, { style: { color, weight: 4, opacity: 0.7 } }).addTo(map);
+          routeLayers.push(line);
+        });
+      }
+
+      // Update midpoint popup
+      const midMarker = markers.find(m => {
+        const icon = m.options.icon;
+        return icon && icon.options && icon.options.html && icon.options.html.includes('marker-midpoint');
+      });
+      if (midMarker) {
+        let midPopup = `<div class="popup-simple"><b>${TRANSPORT_LABELS[currentTransport].split(' ')[1]}-time midpoint</b><br>${lastMid.lat.toFixed(5)}, ${lastMid.lon.toFixed(5)}`;
+        if (lastRoutes) {
+          lastRoutes.forEach((r, i) => { if (r) midPopup += `<br>${lastLabels[i]}: ${formatDuration(r.duration)}`; });
+        }
+        midPopup += `</div>`;
+        midMarker.setPopupContent(midPopup);
+      }
+
+      // Refresh venue markers with updated travel info
+      pubMarkers.forEach(m => map.removeLayer(m));
+      pubMarkers = [];
+      await loadVenues(currentVenueType, lastMid.lat, lastMid.lon, null, null);
+    }
+
     async function findMidpoint() {
       const inputs = document.querySelectorAll('#addr-fields .addr-wrap input');
       const addresses = [...inputs].map(el => el.value.trim());
@@ -1104,6 +1160,9 @@
           locations.push(await geocode(addresses[i]));
           if (i < addresses.length - 1) await new Promise(r => setTimeout(r, 300));
         }
+
+        // Store locations for transport mode switching
+        lastLocations = locations;
 
         // Get labels from the rows
         const labels = [...document.querySelectorAll('#addr-fields .addr-label')].map(el => el.value || 'Person');
@@ -1144,7 +1203,7 @@
         let infoHTML = drivesHTML ? `<div class="drives">${drivesHTML}</div>` : '';
 
         // Midpoint popup
-        let midPopup = `<div class="popup-simple"><b>Drive-time midpoint</b><br>${mid.lat.toFixed(5)}, ${mid.lon.toFixed(5)}`;
+        let midPopup = `<div class="popup-simple"><b>${TRANSPORT_LABELS[currentTransport].split(' ')[1]}-time midpoint</b><br>${mid.lat.toFixed(5)}, ${mid.lon.toFixed(5)}`;
         if (mid.routes) {
           mid.routes.forEach((r, i) => { midPopup += `<br>${labels[i]}: ${formatDuration(r.duration)}`; });
         }
