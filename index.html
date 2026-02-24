@@ -635,6 +635,14 @@
     setupAutocomplete('landing-addr-1', 'landing-ac-1');
     setupAutocomplete('landing-addr-2', 'landing-ac-2');
 
+    // --- Warm up API connections on page load ---
+    // Pre-establish TLS/DNS so first real request doesn't fail
+    setTimeout(() => {
+      fetch('https://nominatim.openstreetmap.org/status', { mode: 'cors' }).catch(() => {});
+      fetch('https://router.project-osrm.org/nearest/v1/driving/0,0', { mode: 'cors' }).catch(() => {});
+      fetch('https://overpass-api.de/api/status', { mode: 'cors' }).catch(() => {});
+    }, 500);
+
     // --- State ---
     let markers = [];
     let routeLayers = [];
