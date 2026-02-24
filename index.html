@@ -3,86 +3,494 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Midpoint Finder</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600&display=swap" />
+  <title>MeetYouThere</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,600;0,700;1,700&display=swap" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
-    :root { --forest: #201D20; --ash: #B7B7A4; --light: #D4D4D4; --white: #F0EFEB; }
+    /* === Figma Design Tokens === */
+    :root {
+      --midnight: #24282C;
+      --soft-grey: #F3F4F6;
+      --electric-mint: #3DDC97;
+      --electric-blue: #3DDCD7;
+      --peach: #FF9F7F;
+      --white: #FFFFFF;
+      --selected-bg: #303337;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Work Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; height: 100vh; color: var(--forest); background: var(--white); }
-    .controls { padding: 12px 16px; background: var(--forest); border-bottom: 1px solid var(--ash); }
+
+    /* === Body: Roboto font, dark background === */
+    body { font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; color: var(--white); background: var(--midnight); }
+
+    /* === Controls bar (top) — Figma: sidebar header style === */
+    .controls { padding: 24px 36px; background: var(--midnight); border-bottom: 1px solid var(--soft-grey); }
+
     #main { display: flex; flex: 1; min-height: 0; }
-    .addr-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+
+    /* === Address rows === */
+    .addr-row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+
+    /* === Address input fields — Figma: pill shape, translucent bg, white border === */
     .addr-wrap { flex: 1; position: relative; }
-    .addr-wrap input { width: 100%; padding: 8px 12px; border: 1px solid var(--ash); border-radius: 6px; font-size: 14px; background: var(--white); color: var(--forest); font-family: inherit; }
-    .addr-wrap input::placeholder { color: var(--ash); }
-    .ac-list { position: absolute; top: 100%; left: 0; right: 0; background: var(--white); border: 1px solid var(--ash); border-top: none; border-radius: 0 0 6px 6px; max-height: 200px; overflow-y: auto; z-index: 1000; display: none; }
-    .ac-list div { padding: 6px 12px; font-size: 13px; cursor: pointer; color: var(--forest); }
-    .ac-list div:hover, .ac-list div.active { background: var(--light); }
-    .ac-list div small { color: var(--ash); }
-    .addr-label { font-size: 12px; color: var(--white); width: 80px; min-width: 80px; font-weight: 600; background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 2px 4px; font-family: inherit; cursor: text; }
-    .addr-label:hover { border-color: rgba(255,255,255,0.3); }
-    .addr-label:focus { outline: none; border-color: var(--ash); background: rgba(255,255,255,0.1); color: var(--white); }
-    .remove-btn { background: none; border: none; color: var(--light); font-size: 18px; cursor: pointer; padding: 4px 8px; line-height: 1; border-radius: 4px; }
-    .remove-btn:hover { background: rgba(255,255,255,0.1); color: var(--white); }
-    .btn-row { display: flex; gap: 8px; align-items: center; }
-    .btn-row button { padding: 8px 16px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; white-space: nowrap; font-family: inherit; font-weight: 600; }
-    #findBtn { background: var(--ash); color: var(--forest); }
-    #findBtn:hover { background: var(--light); }
-    #findBtn:disabled { background: var(--ash); opacity: 0.5; cursor: not-allowed; }
-    #addFriendBtn { background: transparent; color: var(--ash); border: 1px solid var(--ash); }
-    #addFriendBtn:hover { background: rgba(255,255,255,0.1); color: var(--white); border-color: var(--white); }
+    .addr-wrap input {
+      width: 100%; padding: 12px 72px 12px 20px; height: 43px;
+      border: 1px solid var(--white); border-radius: 100px;
+      font-size: 16px; line-height: 19px; font-weight: 400;
+      background: rgba(255, 255, 255, 0.1); color: var(--white); font-family: inherit;
+    }
+    .addr-wrap input::placeholder { color: rgba(255,255,255,0.5); }
+    .addr-wrap input:focus { outline: none; border-color: var(--electric-mint); }
+
+    /* === Autocomplete dropdown — dark themed === */
+    .ac-list { position: absolute; top: 100%; left: 10px; right: 10px; background: var(--midnight); border: 1px solid var(--soft-grey); border-top: none; border-radius: 0 0 12px 12px; max-height: 200px; overflow-y: auto; z-index: 1000; display: none; }
+    .ac-list div { padding: 10px 16px; font-size: 14px; cursor: pointer; color: var(--white); }
+    .ac-list div:hover, .ac-list div.active { background: var(--selected-bg); }
+    .ac-list div small { color: rgba(255,255,255,0.5); }
+
+    /* === Address labels — hidden per Figma === */
+    .addr-label { display: none; }
+
+    /* === Remove button === */
+    .remove-btn { background: none; border: none; color: rgba(255,255,255,0.5); font-size: 18px; cursor: pointer; padding: 4px 8px; line-height: 1; border-radius: 4px; }
+    .remove-btn:hover { color: var(--white); }
+
+    /* === Button row === */
+    .btn-row { display: flex; gap: 24px; align-items: center; }
+    .btn-row button { padding: 12px; border: none; border-radius: 6px; font-size: 16px; line-height: 19px; cursor: pointer; white-space: nowrap; font-family: inherit; font-weight: 700; }
+
+    /* === "Let's Meet!" button — Figma: white bold text === */
+    #findBtn { background: var(--electric-mint); color: var(--midnight); padding: 12px 24px; border-radius: 100px; }
+    #findBtn:hover { opacity: 0.9; }
+    #findBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* === "+ Add friend" button — Figma: white bold, no border === */
+    #addFriendBtn { background: transparent; color: var(--white); border: none; font-size: 16px; font-weight: 700; }
+    #addFriendBtn:hover { opacity: 0.8; }
+
+    /* === Map === */
     #map { flex: 1; min-height: 0; }
-    #error { color: #c1121f; font-size: 13px; margin-top: 4px; }
+
+    /* === Error === */
+    #error { color: var(--peach); font-size: 14px; margin-top: 8px; }
     #error:empty { display: none; }
+
+    /* === Sidebar — Figma: midnight bg, always on left === */
     #sidebar-wrap { display: none; position: relative; flex-shrink: 0; }
     #sidebar-wrap.visible { display: flex; }
-    #sidebar { width: 360px; border-right: 1px solid var(--light); overflow-y: auto; background: var(--white); transition: width 0.25s ease, min-width 0.25s ease; min-width: 360px; }
-    #sidebar-wrap.collapsed #sidebar { width: 0; min-width: 0; overflow: hidden; border-right: none; }
-    #sidebar-toggle { position: absolute; top: 80px; right: -32px; width: 28px; height: 28px; background: var(--white); border: 1px solid var(--light); border-left: none; border-radius: 0 6px 6px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--forest); z-index: 500; padding: 0; }
-    #sidebar-toggle:hover { background: var(--light); }
-    #info { padding: 16px; font-size: 14px; }
-    .drives { display: flex; flex-direction: column; gap: 8px; }
-    .drives .route { }
+    #sidebar { width: 402px; min-width: 402px; border-right: none; overflow-y: auto; background: var(--midnight); transition: width 0.25s ease, min-width 0.25s ease; }
+    #sidebar-wrap.collapsed #sidebar { width: 0; min-width: 0; overflow: hidden; }
+
+    /* === Sidebar toggle — Figma: midnight bg, rounded right corners === */
+    #sidebar-toggle { position: absolute; top: 29px; right: -30px; width: 30px; height: 100px; background: var(--midnight); border: none; border-radius: 0 10px 10px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--white); z-index: 500; padding: 0; }
+    #sidebar-toggle:hover { opacity: 0.85; }
+
+    /* === Info panel === */
+    #info { padding: 0; font-size: 16px; line-height: 19px; }
+
+    /* === Drive routes info === */
+    .drives { display: flex; flex-direction: column; gap: 10px; padding: 24px 36px; }
+    .drives .route { font-size: 16px; line-height: 19px; color: var(--white); }
     .drives .route b { display: block; margin-bottom: 2px; }
-    #pubs-list { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--light); }
-    #pubs-list h3 { font-size: 14px; margin-bottom: 6px; color: var(--forest); }
-    #pubs-list ol { margin: 0; padding-left: 20px; }
-    #pubs-list li { margin-bottom: 3px; cursor: pointer; color: var(--forest); }
-    #pubs-list li:hover { text-decoration: underline; }
-    #pubs-list li span { color: var(--ash); font-size: 12px; }
-    #pubs-list li a.review-link { color: var(--forest); font-size: 12px; font-weight: 600; margin-left: 4px; text-decoration: none; }
+
+    /* === Venue list === */
+    #pubs-list { margin-top: 0; padding-top: 0; border-top: none; }
+    #pubs-list h3 { font-size: 16px; margin-bottom: 6px; color: var(--white); font-weight: 600; padding: 0 36px; }
+    #pubs-list ol { margin: 0; padding: 0; list-style: none; }
+    #pubs-list li {
+      padding: 24px 36px; cursor: pointer; color: var(--white);
+      font-size: 16px; line-height: 19px; font-weight: 600;
+      background: var(--midnight); border-bottom: 1px solid var(--white);
+    }
+    #pubs-list li:hover { background: var(--selected-bg); text-decoration: none; }
+    #pubs-list li span { color: var(--white); font-size: 16px; font-weight: 400; display: block; margin-top: 4px; }
+    #pubs-list li a.review-link { color: var(--electric-mint); font-size: 14px; font-weight: 700; margin-left: 0; text-decoration: none; display: block; margin-top: 4px; }
     #pubs-list li a.review-link:hover { text-decoration: underline; }
-    .pub-detail { margin-top: 10px; padding: 12px; background: var(--light); border-radius: 8px; border: 1px solid var(--ash); }
-    .pub-detail h3 { font-size: 16px; margin-bottom: 8px; color: var(--forest); }
-    .pub-detail .pub-meta { font-size: 13px; color: var(--forest); line-height: 1.6; }
-    .pub-detail .pub-photo { width: 100%; max-height: 200px; object-fit: cover; border-radius: 6px; margin-bottom: 8px; }
-    .pub-detail .pub-links { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-    .pub-detail .pub-links a { display: inline-block; padding: 4px 12px; background: var(--forest); color: var(--white); border-radius: 4px; text-decoration: none; font-size: 13px; }
+
+    /* === Pub detail card — Figma: selected-bg, padded === */
+    .pub-detail { margin-top: 0; padding: 24px 36px; background: var(--selected-bg); border-radius: 0; border: none; border-left: 5px solid var(--electric-blue); box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25); }
+    .pub-detail h3 { font-size: 24px; line-height: 28px; margin-bottom: 10px; color: var(--white); font-weight: 700; }
+    .pub-detail .pub-meta { font-size: 16px; color: var(--white); line-height: 19px; font-weight: 400; }
+    .pub-detail .pub-photo { width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; }
+    .pub-detail .pub-links { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+    .pub-detail .pub-links a { display: inline-block; padding: 8px 16px; background: var(--electric-mint); color: var(--midnight); border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 700; }
     .pub-detail .pub-links a:hover { opacity: 0.85; }
-    .pub-detail .pub-links a.secondary { background: var(--ash); color: var(--forest); }
+    .pub-detail .pub-links a.secondary { background: var(--soft-grey); color: var(--midnight); }
     .pub-detail .pub-links a.secondary:hover { opacity: 0.85; }
-    .venue-toggle { display: flex; gap: 0; margin-top: 16px; margin-bottom: 12px; border-radius: 6px; overflow: hidden; border: 1px solid var(--ash); }
-    .venue-toggle button { flex: 1; padding: 8px 12px; border: none; font-size: 13px; font-family: inherit; font-weight: 600; cursor: pointer; background: var(--light); color: var(--forest); transition: background 0.15s, color 0.15s; }
-    .venue-toggle button.active { background: var(--forest); color: var(--white); }
-    .venue-toggle button:not(:last-child) { border-right: 1px solid var(--ash); }
+
+    /* === Venue toggle tabs — Figma: white bottom border, mint active, white inactive === */
+    .venue-toggle { display: flex; gap: 0; margin-top: 0; margin-bottom: 0; border-radius: 0; overflow: visible; border: none; border-bottom: 1px solid var(--white); padding: 12px 0 0; }
+    .venue-toggle button {
+      flex: 1; padding: 12px 24px 24px; border: none; border-bottom: 5px solid transparent;
+      font-size: 16px; font-family: inherit; font-weight: 700; cursor: pointer;
+      background: transparent; color: var(--white);
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .venue-toggle button.active { color: var(--electric-mint); border-bottom-color: var(--electric-mint); }
+    .venue-toggle button:not(:last-child) { border-right: none; }
+    .venue-toggle button:hover:not(.active) { opacity: 0.8; }
+
+    /* === Leaflet popup — Figma: cyan header, midnight body === */
+    .leaflet-popup-content-wrapper {
+      background: var(--midnight) !important; color: var(--white) !important;
+      border-radius: 10px !important;
+      box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25) !important;
+      padding: 0 !important;
+    }
+    .leaflet-popup-tip { background: var(--midnight) !important; }
+    .leaflet-popup-content { font-family: 'Roboto', sans-serif; font-size: 16px; line-height: 19px; margin: 12px 16px !important; }
+    .leaflet-popup-content a { color: var(--electric-mint) !important; }
+    .leaflet-popup-content b { color: var(--white); font-weight: 700; }
+    .leaflet-popup-close-button { color: rgba(255,255,255,0.5) !important; font-size: 20px !important; }
+    .leaflet-popup-close-button:hover { color: var(--white) !important; }
+
+    /* === Leaflet controls — dark themed === */
+    .leaflet-control-attribution { background: rgba(36,40,44,0.7) !important; color: rgba(255,255,255,0.5) !important; font-size: 10px !important; }
+    .leaflet-control-attribution a { color: rgba(255,255,255,0.5) !important; }
+
+    /* === Footer — Figma: midnight bg, white border-top === */
+    .map-footer {
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px; background: var(--midnight);
+      border-top: 1px solid var(--white);
+      font-size: 16px; line-height: 19px; font-weight: 400;
+      color: var(--white); text-align: center;
+    }
+
+    /* === View switching === */
+    .view { display: none; flex-direction: column; height: 100vh; }
+    .view.active { display: flex; }
+    #app-view { display: none; }
+    #app-view.active { display: flex; }
+
+    /* === Landing page === */
+    #landing-view {
+      background: var(--midnight);
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .landing-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 557px;
+      padding: 0 24px 100px;
+      min-height: 0;
+    }
+    .brand-text {
+      font-size: 48px;
+      font-weight: 700;
+      color: var(--white);
+      text-align: center;
+      line-height: 1.1;
+    }
+    .brand-text .highlight { color: var(--peach); }
+    .landing-subtitle {
+      font-size: 16px;
+      color: var(--white);
+      text-align: center;
+      margin-top: 12px;
+    }
+    .landing-fields {
+      width: 100%;
+      margin-top: 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      flex-shrink: 1;
+      min-height: 0;
+      overflow: visible;
+    }
+    .landing-fields.scrollable {
+      overflow-y: auto;
+      padding-right: 4px;
+      padding-bottom: 220px;
+    }
+    .landing-field-group { display: flex; flex-direction: column; gap: 6px; }
+    .landing-field-label {
+      font-size: 16px;
+      color: var(--white);
+      padding: 0 12px;
+    }
+    .landing-field-group .addr-wrap { width: 100%; }
+    .landing-field-group .addr-wrap input {
+      width: 100%; padding: 12px 72px 12px 20px; height: 43px;
+      border: 1px solid var(--white); border-radius: 100px;
+      font-size: 16px; line-height: 19px; font-weight: 400;
+      background: rgba(255, 255, 255, 0.1); color: var(--white); font-family: inherit;
+    }
+    .landing-field-group .addr-wrap input::placeholder { color: rgba(255,255,255,0.5); }
+    .landing-field-group .addr-wrap input:focus { outline: none; border-color: var(--electric-mint); }
+    #landing-add-friend {
+      background: transparent;
+      border: none;
+      color: var(--white);
+      font-size: 16px;
+      font-weight: 700;
+      font-family: inherit;
+      width: 137px;
+      cursor: pointer;
+      text-align: left;
+      padding: 0;
+      margin-top: 24px;
+    }
+    #landing-add-friend:hover { opacity: 0.8; }
+    #landing-meet-btn {
+      width: 100%;
+      height: 43px;
+      margin-top: 60px;
+      background: var(--electric-mint);
+      color: var(--midnight);
+      border: none;
+      border-radius: 100px;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    #landing-meet-btn:hover { opacity: 0.9; }
+    #landing-meet-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #landing-error {
+      color: var(--peach);
+      font-size: 14px;
+      margin-top: 8px;
+      text-align: center;
+    }
+    #landing-error:empty { display: none; }
+    .landing-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      border-top: 1px solid var(--white);
+      font-size: 16px;
+      line-height: 19px;
+      font-weight: 400;
+      color: var(--white);
+      text-align: center;
+      background: var(--midnight);
+    }
+
+    /* === Loading page === */
+    #loading-view {
+      background: var(--midnight);
+      align-items: center;
+      justify-content: center;
+    }
+    .loading-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 60px;
+    }
+    .loading-heading {
+      font-size: 20px;
+      line-height: 24px;
+      font-weight: 600;
+      color: var(--white);
+      text-align: center;
+    }
+    .loading-details {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+      width: 742px;
+      max-width: 90vw;
+    }
+    .loading-status {
+      font-size: 16px;
+      line-height: 19px;
+      font-weight: 400;
+      color: var(--white);
+      text-align: center;
+      width: 100%;
+    }
+    .loading-bar-track {
+      box-sizing: border-box;
+      width: 100%;
+      height: 56px;
+      padding: 12px;
+      border: 2px solid var(--electric-mint);
+      border-radius: 100px;
+      overflow: hidden;
+      display: flex;
+      gap: 10px;
+    }
+    .loading-bar-fill {
+      height: 32px;
+      border-radius: 100px;
+      background: linear-gradient(90deg, #3DDC97 1.58%, #3DDCD7 100.2%);
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+    .loading-hint {
+      font-size: 14px;
+      line-height: 17px;
+      font-weight: 400;
+      font-style: italic;
+      color: var(--white);
+      text-align: center;
+      width: 100%;
+    }
   </style>
 </head>
 <body>
-  <div class="controls">
-    <div id="addr-fields"></div>
-    <div class="btn-row">
-      <button id="addFriendBtn" onclick="addFriend()">+ Add friend</button>
-      <button id="findBtn" onclick="findMidpoint()">Let's Meet!</button>
+  <!-- === Landing View === -->
+  <div id="landing-view" class="view active">
+    <div class="landing-content">
+      <div class="brand-text"><span class="highlight">M</span>eet<span class="highlight">Y</span>ou<span class="highlight">T</span>here<span class="highlight">.</span></div>
+      <div class="landing-subtitle">Add each location below and we'll find the perfect place to meet</div>
+      <div class="landing-fields" id="landing-fields">
+        <div class="landing-field-group">
+          <label class="landing-field-label">Your location</label>
+          <div class="addr-wrap"><input type="text" id="landing-addr-1" placeholder="Your location" autocomplete="off" /><div class="ac-list" id="landing-ac-1"></div></div>
+        </div>
+        <div class="landing-field-group">
+          <label class="landing-field-label">Friend 1's location</label>
+          <div class="addr-wrap"><input type="text" id="landing-addr-2" placeholder="Friend 1's location" autocomplete="off" /><div class="ac-list" id="landing-ac-2"></div></div>
+        </div>
+      </div>
+      <button id="landing-add-friend" onclick="addLandingFriend()">+ Add friend</button>
+      <button id="landing-meet-btn" onclick="handleLandingSubmit()">Let's Meet!</button>
+      <div id="landing-error"></div>
     </div>
-    <div id="error"></div>
+    <div class="landing-footer">&copy; 2026 MeetYouThere Ltd. We'll meet you halfway.</div>
   </div>
-  <div id="main">
-    <div id="sidebar-wrap"><div id="sidebar"><div id="info"></div></div><button id="sidebar-toggle" onclick="toggleSidebar()" title="Collapse sidebar">&#9664;</button></div>
-    <div id="map"></div>
+
+  <!-- === Loading View === -->
+  <div id="loading-view" class="view">
+    <div class="loading-content">
+      <div class="brand-text"><span class="highlight">M</span>eet<span class="highlight">Y</span>ou<span class="highlight">T</span>here<span class="highlight">.</span></div>
+      <div class="loading-details">
+        <div class="loading-heading">Hold tight, we are just generating your meeting points</div>
+        <div id="loading-status" class="loading-status">Generating...</div>
+        <div class="loading-bar-track">
+          <div id="loading-bar-fill" class="loading-bar-fill"></div>
+        </div>
+        <div class="loading-hint">This usually takes 1 minute</div>
+      </div>
+    </div>
+    <div class="landing-footer">&copy; 2026 MeetYouThere Ltd. We'll meet you halfway.</div>
+  </div>
+
+  <!-- === App View (existing map page) === -->
+  <div id="app-view" class="view">
+    <div class="controls">
+      <div id="addr-fields"></div>
+      <div class="btn-row">
+        <button id="addFriendBtn" onclick="addFriend()">+ Add friend</button>
+        <button id="findBtn" onclick="findMidpoint()">Let's Meet!</button>
+      </div>
+      <div id="error"></div>
+    </div>
+    <div id="main">
+      <div id="sidebar-wrap"><div id="sidebar"><div id="info"></div></div><button id="sidebar-toggle" onclick="toggleSidebar()" title="Collapse sidebar">&#9664;</button></div>
+      <div style="flex:1; display:flex; flex-direction:column; min-height:0;">
+        <div id="map"></div>
+        <div class="map-footer">&copy; 2026 MeetYouThere Ltd. We'll meet you halfway.</div>
+      </div>
+    </div>
   </div>
   <script>
+    // === View switching ===
+    function showView(id) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      if (id === 'app-view') {
+        setTimeout(() => map.invalidateSize(), 50);
+      }
+      if (id === 'loading-view') {
+        // Reset progress bar
+        document.getElementById('loading-bar-fill').style.width = '0%';
+        document.getElementById('loading-status').textContent = 'Generating...';
+      }
+    }
+
+    function updateLoadingProgress(percent, status) {
+      const fill = document.getElementById('loading-bar-fill');
+      const statusEl = document.getElementById('loading-status');
+      if (fill) fill.style.width = percent + '%';
+      if (statusEl && status) statusEl.textContent = status;
+    }
+
+    // === Landing page: scrollable check ===
+    function checkLandingScroll() {
+      const fields = document.getElementById('landing-fields');
+      // Compare the natural content height to the available space
+      fields.classList.remove('scrollable');
+      const needsScroll = fields.scrollHeight > fields.clientHeight;
+      fields.classList.toggle('scrollable', needsScroll);
+    }
+
+    // === Landing page: add friend ===
+    let landingFriendCount = 1;
+    function addLandingFriend() {
+      landingFriendCount++;
+      const num = landingFriendCount;
+      const group = document.createElement('div');
+      group.className = 'landing-field-group';
+      group.id = `landing-group-${num}`;
+      group.innerHTML =
+        `<label class="landing-field-label">Friend ${num}'s location</label>` +
+        `<div style="display:flex; gap:8px; align-items:center;">` +
+          `<div class="addr-wrap" style="flex:1;"><input type="text" id="landing-addr-${num + 1}" placeholder="Friend ${num}'s location" autocomplete="off" /><div class="ac-list" id="landing-ac-${num + 1}"></div></div>` +
+          `<button class="remove-btn" onclick="removeLandingFriend('landing-group-${num}')" title="Remove">&times;</button>` +
+        `</div>`;
+      document.getElementById('landing-fields').appendChild(group);
+      setupAutocomplete(`landing-addr-${num + 1}`, `landing-ac-${num + 1}`);
+      checkLandingScroll();
+    }
+
+    function removeLandingFriend(id) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+      checkLandingScroll();
+    }
+
+    // === Landing page: submit ===
+    function handleLandingSubmit() {
+      const landingInputs = document.querySelectorAll('#landing-fields .addr-wrap input');
+      const addresses = [...landingInputs].map(el => el.value.trim());
+      const errorEl = document.getElementById('landing-error');
+      errorEl.textContent = '';
+
+      if (addresses.some(a => !a)) {
+        errorEl.textContent = 'Please enter all addresses.';
+        return;
+      }
+      if (addresses.length < 2) {
+        errorEl.textContent = 'Need at least 2 locations.';
+        return;
+      }
+
+      // Reset app address fields to match landing inputs
+      const addrFieldsEl = document.getElementById('addr-fields');
+      addrFieldsEl.innerHTML = '';
+      addrCount = 0;
+
+      // Re-create app address fields with the values from landing
+      addresses.forEach((addr, i) => {
+        const label = i === 0 ? 'You' : `Friend ${i}`;
+        const placeholder = i === 0 ? 'Your location' : `Friend ${i}'s location`;
+        addAddressField(label, placeholder, i > 0);
+        // Set the value from the landing input
+        document.getElementById(`addr-${i + 1}`).value = addr;
+      });
+
+      // Show loading, then run search
+      showView('loading-view');
+      // Small delay so loading view renders before heavy work
+      setTimeout(() => findMidpoint(), 50);
+    }
+
     const map = L.map('map').setView([39.8283, -98.5795], 4);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -138,6 +546,8 @@
     addAddressField('You', 'Your location', false);
     addAddressField('Friend 1', "Friend 1's location", true);
 
+    // Landing page autocomplete will be set up after setupAutocomplete is defined
+
     // --- Autocomplete ---
     function setupAutocomplete(inputId, listId) {
       const input = document.getElementById(inputId);
@@ -178,7 +588,10 @@
 
       input.addEventListener('keydown', e => {
         if (list.style.display === 'none' || !items.length) {
-          if (e.key === 'Enter') findMidpoint();
+          if (e.key === 'Enter') {
+            if (input.id.startsWith('landing-')) handleLandingSubmit();
+            else findMidpoint();
+          }
           return;
         }
         if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1); highlight(); }
@@ -201,6 +614,10 @@
         list.style.display = 'none';
       }
     }
+
+    // Setup landing page autocomplete
+    setupAutocomplete('landing-addr-1', 'landing-ac-1');
+    setupAutocomplete('landing-addr-2', 'landing-ac-2');
 
     // --- State ---
     let markers = [];
@@ -427,6 +844,7 @@
 
       for (let i = 0; i < iterations; i++) {
         btn.textContent = `Optimizing (${i + 1}/${iterations})...`;
+        updateLoadingProgress(25 + Math.round((i + 1) / iterations * 45), `Optimizing route ${i + 1} of ${iterations}...`);
 
         const routes = await Promise.all(
           locations.map(l => getRoute(l.lat, l.lon, candLat, candLon))
@@ -497,7 +915,7 @@
         resultsEl.innerHTML = `<div id="pubs-list"><h3>Nearest ${config.label} to midpoint</h3><ol>` +
           venues.map((v, i) => {
             const reviewUrl = googleMapsSearchUrl(v.name, v.lat, v.lon);
-            return `<li data-idx="${i}">${v.name} <span>${Math.round(v.dist)}m away${v.addr ? ' &middot; ' + v.addr : ''}</span> <a class="review-link" href="${reviewUrl}" target="_blank" onclick="event.stopPropagation()">See reviews</a></li>`;
+            return `<li data-idx="${i}">${v.name} <span>${v.addr ? v.addr + ' \u2022 ' : ''}${v.openingHours ? v.openingHours : Math.round(v.dist) + 'm away'}</span> <a class="review-link" href="${reviewUrl}" target="_blank" onclick="event.stopPropagation()">See reviews</a></li>`;
           }).join('') + `</ol><div id="pub-detail"></div></div>`;
         resultsEl.querySelectorAll('#pubs-list li').forEach(li => {
           li.addEventListener('click', () => {
@@ -508,7 +926,7 @@
           });
         });
       } else {
-        resultsEl.innerHTML = `<div id="pubs-list"><h3>Nearest ${config.label} to midpoint</h3><p style="color:#6c757d">${venueError ? 'Search failed — try again. (' + venueError + ')' : `No ${config.label} found within 5 km.`}</p></div>`;
+        resultsEl.innerHTML = `<div id="pubs-list"><h3>Nearest ${config.label} to midpoint</h3><p style="color:rgba(255,255,255,0.5); padding: 0 36px;">${venueError ? 'Search failed — try again. (' + venueError + ')' : `No ${config.label} found within 5 km.`}</p></div>`;
       }
     }
 
@@ -549,12 +967,14 @@
 
       btn.disabled = true;
       btn.textContent = 'Geocoding...';
+      updateLoadingProgress(5, 'Geocoding addresses...');
 
       try {
         // Geocode all addresses (sequentially to respect Nominatim rate limits)
         const locations = [];
         for (let i = 0; i < addresses.length; i++) {
           btn.textContent = `Geocoding (${i + 1}/${addresses.length})...`;
+          updateLoadingProgress(5 + Math.round((i + 1) / addresses.length * 15), `Geocoding address ${i + 1} of ${addresses.length}...`);
           locations.push(await geocode(addresses[i]));
           if (i < addresses.length - 1) await new Promise(r => setTimeout(r, 300));
         }
@@ -571,6 +991,7 @@
         });
 
         // Optimize midpoint
+        updateLoadingProgress(25, 'Optimizing meeting point...');
         const mid = await optimizeMidpoint(locations, btn);
 
         const m3 = L.marker([mid.lat, mid.lon], { icon: redIcon }).addTo(map);
@@ -592,7 +1013,7 @@
         }
 
         const infoEl = document.getElementById('info');
-        let infoHTML = drivesHTML ? `<div class="drives">${drivesHTML}</div>` : '<div style="color:#6c757d">Driving directions unavailable.</div>';
+        let infoHTML = drivesHTML ? `<div class="drives">${drivesHTML}</div>` : '<div style="color:rgba(255,255,255,0.5); padding: 24px 36px;">Driving directions unavailable.</div>';
 
         // Midpoint popup
         let midPopup = `<b>Drive-time midpoint</b><br>${mid.lat.toFixed(5)}, ${mid.lon.toFixed(5)}`;
@@ -616,12 +1037,17 @@
         map.invalidateSize();
 
         // Load initial venues
+        updateLoadingProgress(75, 'Finding nearby venues...');
         await loadVenues('pubs', mid.lat, mid.lon, bounds, btn);
 
+        updateLoadingProgress(100, 'Done!');
         map.fitBounds(bounds, { padding: [40, 40] });
         m3.openPopup();
+        showView('app-view');
       } catch (e) {
-        errorEl.textContent = e.message;
+        // Show error on landing page and go back
+        document.getElementById('landing-error').textContent = e.message;
+        showView('landing-view');
       } finally {
         btn.disabled = false;
         btn.textContent = "Let's Meet!";
