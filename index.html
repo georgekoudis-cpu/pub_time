@@ -548,6 +548,20 @@
 
     // Landing page autocomplete will be set up after setupAutocomplete is defined
 
+    // --- Retry-capable fetch ---
+    async function fetchWithRetry(url, options = {}, retries = 2, delay = 1000) {
+      for (let i = 0; i <= retries; i++) {
+        try {
+          const res = await fetch(url, options);
+          if (res.ok) return res;
+          if (i < retries) await new Promise(r => setTimeout(r, delay));
+        } catch (e) {
+          if (i === retries) throw e;
+          await new Promise(r => setTimeout(r, delay));
+        }
+      }
+    }
+
     // --- Autocomplete ---
     function setupAutocomplete(inputId, listId) {
       const input = document.getElementById(inputId);
@@ -770,7 +784,7 @@
 
     async function getRoute(fromLat, fromLon, toLat, toLon) {
       const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson`;
-      const res = await fetch(url);
+      const res = await fetchWithRetry(url);
       const data = await res.json();
       if (data.code !== 'Ok' || !data.routes.length) return null;
       return { duration: data.routes[0].duration, distance: data.routes[0].distance, geometry: data.routes[0].geometry };
@@ -789,7 +803,7 @@
 
     async function geocode(address) {
       const url = `https://nominatim.openstreetmap.org/search?${new URLSearchParams({ q: address, format: 'json', limit: '1' })}`;
-      const res = await fetch(url, { headers: { 'User-Agent': 'MidpointFinderApp/1.0' } });
+      const res = await fetchWithRetry(url, { headers: { 'User-Agent': 'MidpointFinderApp/1.0' } });
       const data = await res.json();
       if (!data.length) throw new Error(`Address not found: "${address}"`);
       return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: data[0].display_name };
