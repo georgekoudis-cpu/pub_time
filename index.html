@@ -549,17 +549,19 @@
     // Landing page autocomplete will be set up after setupAutocomplete is defined
 
     // --- Retry-capable fetch ---
-    async function fetchWithRetry(url, options = {}, retries = 2, delay = 1000) {
+    async function fetchWithRetry(url, options = {}, retries = 2, delay = 1500) {
+      let lastError;
       for (let i = 0; i <= retries; i++) {
         try {
           const res = await fetch(url, options);
           if (res.ok) return res;
-          if (i < retries) await new Promise(r => setTimeout(r, delay));
+          lastError = new Error(`HTTP ${res.status}`);
         } catch (e) {
-          if (i === retries) throw e;
-          await new Promise(r => setTimeout(r, delay));
+          lastError = e;
         }
+        if (i < retries) await new Promise(r => setTimeout(r, delay));
       }
+      throw lastError;
     }
 
     // --- Autocomplete ---
@@ -663,7 +665,7 @@
     async function queryOverpass(query) {
       for (const server of OVERPASS_SERVERS) {
         try {
-          const res = await fetch(server, { method: 'POST', body: `data=${encodeURIComponent(query)}` });
+          const res = await fetchWithRetry(server, { method: 'POST', body: `data=${encodeURIComponent(query)}` }, 1, 1000);
           if (!res.ok) continue;
           return await res.json();
         } catch (e) { continue; }
