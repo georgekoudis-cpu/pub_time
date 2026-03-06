@@ -167,7 +167,7 @@
       padding: 0 !important; overflow: hidden !important;
     }
     .leaflet-popup-tip { background: var(--midnight) !important; }
-    .leaflet-popup-content { font-family: 'Roboto', sans-serif; font-size: 13px; line-height: 17px; margin: 0 !important; width: auto !important; }
+    .leaflet-popup-content { font-family: 'Roboto', sans-serif; font-size: 13px; line-height: 17px; margin: 0 !important; }
     .leaflet-popup-content a { color: var(--electric-mint) !important; }
     .leaflet-popup-content b { color: var(--white); font-weight: 700; }
     .leaflet-popup-close-button { color: rgba(255,255,255,0.5) !important; font-size: 20px !important; z-index: 10; }
@@ -1046,7 +1046,7 @@
             `<div class="popup-info"><div class="popup-name">${v.name}</div>` +
             `<div class="popup-meta">${v.addr ? v.addr : ''}${v.addr && v.openingHours ? ' &bull; ' : ''}${v.openingHours || ''}</div></div></div>`;
           const pm = L.marker([v.lat, v.lon], { icon: venueIcon }).addTo(map)
-            .bindPopup(popupHTML, { maxWidth: 360, minWidth: 280 });
+            .bindPopup(popupHTML, { maxWidth: 280, minWidth: 280 });
           pubMarkers.push(pm);
           if (bounds) bounds.extend([v.lat, v.lon]);
         });
@@ -1176,7 +1176,7 @@
         // Place location markers (circle icons)
         locations.forEach((loc, i) => {
           const m = L.marker([loc.lat, loc.lon], { icon: personIcon(i + 1) }).addTo(map)
-            .bindPopup(`<div class="popup-simple"><b>${labels[i]}</b><br>${loc.name}</div>`);
+            .bindPopup(`<div class="popup-simple"><b>${labels[i]}</b><br>${loc.name}</div>`, { maxWidth: 280, minWidth: 280 });
           markers.push(m);
         });
 
@@ -1214,7 +1214,7 @@
           mid.routes.forEach((r, i) => { midPopup += `<br>${labels[i]}: ${formatDuration(r.duration)}`; });
         }
         midPopup += `</div>`;
-        m3.bindPopup(midPopup);
+        m3.bindPopup(midPopup, { maxWidth: 280, minWidth: 280 });
 
         // Store state for venue toggle re-queries
         lastMid = { lat: mid.lat, lon: mid.lon };
