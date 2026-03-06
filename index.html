@@ -719,7 +719,7 @@
     // Pre-establish TLS/DNS so first real request doesn't fail
     setTimeout(() => {
       fetch('https://nominatim.openstreetmap.org/status', { mode: 'cors' }).catch(() => {});
-      fetch('https://router.project-osrm.org/nearest/v1/driving/0,0', { mode: 'cors' }).catch(() => {});
+      fetch('https://routing.openstreetmap.de/routed-car/nearest/v1/driving/0,0', { mode: 'cors' }).catch(() => {});
       fetch('https://overpass-api.de/api/status', { mode: 'cors' }).catch(() => {});
     }, 500);
 
@@ -734,6 +734,11 @@
     let currentTransport = 'driving';
     const TRANSPORT_PROFILES = { Car: 'driving', Walk: 'walking', Bike: 'cycling', Train: null };
     const TRANSPORT_LABELS = { driving: '\u{1F697} Drive', walking: '\u{1F6B6} Walk', cycling: '\u{1F6B2} Bike' };
+    const TRANSPORT_SERVERS = {
+      driving: 'https://routing.openstreetmap.de/routed-car',
+      walking: 'https://routing.openstreetmap.de/routed-foot',
+      cycling: 'https://routing.openstreetmap.de/routed-bike',
+    };
     let lastLocations = [];
 
     function toggleSidebar() {
@@ -880,7 +885,8 @@
     }
 
     async function getRoute(fromLat, fromLon, toLat, toLon) {
-      const url = `https://router.project-osrm.org/route/v1/${currentTransport}/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson`;
+      const server = TRANSPORT_SERVERS[currentTransport];
+      const url = `${server}/route/v1/${currentTransport}/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson`;
       const res = await fetchWithRetry(url);
       const data = await res.json();
       if (data.code !== 'Ok' || !data.routes.length) return null;
